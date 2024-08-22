@@ -5,10 +5,16 @@
 
 
 # useful for handling different item types with a single interface
+import boto3
+
 from itemadapter import ItemAdapter
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('BluckBuster_movies')
 
 
 class MoviesPipeline:
 
     def process_item(self, item, spider):
+        table.put_item(Item=dict(item))
         return item

@@ -9,5 +9,7 @@ import scrapy
 
 
 class SimpsonsItem(scrapy.Item):
+    id = scrapy.Field()
     first_name = scrapy.Field()
     last_name = scrapy.Field()
+    user_name = scrapy.Field()

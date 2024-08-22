@@ -7,6 +7,7 @@ import scrapy
 
 
 class MoviesItem(scrapy.Item):
+    id = scrapy.Field()
     title = scrapy.Field()
     year = scrapy.Field()
     rating = scrapy.Field()
