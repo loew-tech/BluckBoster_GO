@@ -13,3 +13,4 @@ class SimpsonsItem(scrapy.Item):
     first_name = scrapy.Field()
     last_name = scrapy.Field()
     user_name = scrapy.Field()
+    member_type = scrapy.Field()
