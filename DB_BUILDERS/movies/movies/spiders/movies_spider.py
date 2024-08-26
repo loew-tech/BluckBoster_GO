@@ -1,4 +1,5 @@
 import json
+from random import randint
 
 import scrapy
 
@@ -34,11 +35,12 @@ class MoviesSpider(scrapy.Spider):
             item['director'] = content[0].css('div div[class="info '
                                       'director"] a::text').get()
             item['id'] = f'{"_".join(item["title"].split())}_{item["year"]}'.lower()
+            item['inventory'] = randint(2, 6)
             yield item
             movies.append(dict(item))
             
         if MoviesSpider._movies is not None:
-            with open('movies.json', 'w') as movie_json:
+            with open('../movies.json', 'w', encoding='utf-8') as movie_json:
                 json.dump([*MoviesSpider._movies, *movies], movie_json, 
                           ensure_ascii=False, indent=4, sort_keys=True)
                 return

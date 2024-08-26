@@ -15,3 +15,4 @@ class MoviesItem(scrapy.Item):
     synopsis = scrapy.Field()
     cast = scrapy.Field()
     director = scrapy.Field()
+    inventory = scrapy.Field()

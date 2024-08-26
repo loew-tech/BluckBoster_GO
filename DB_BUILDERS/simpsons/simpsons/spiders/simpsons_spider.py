@@ -19,19 +19,17 @@ class SimpsonSpider(scrapy.Spider):
         data = response.css('div[class="mw-heading mw-heading3"] '
                             'h3::text').getall()
         simpsons = []
-        used_names = {'artie_ziff'}
         for character in data:
             first_name, *last_name = character.split()
 
             item = Item()
             item['first_name'] = first_name
-            item['last_name'] = ' '.join(last_name)
-            item['user_name'] = f'{first_name}_{"_".join(last_name)}'.lower() \
+            item['last_name'] = ' '.join(last_name) if last_name else ' '
+            item['username'] = f'{first_name}_{"_".join(last_name)}'.lower() \
                 if last_name else first_name
             item['member_type'] = choice(SimpsonSpider._member_types)
             simpsons.append(dict(item))
             yield item
         
-        with open('simpsons.json', 'w') as simpsons_json:
-            json.dump(simpsons, simpsons_json, ensure_ascii=False, 
-                      indent=4, sort_keys=True)
+        with open('../simpsons.json', 'w', encoding='utf-8') as simpsons_json:
+            json.dump(simpsons, simpsons_json, ensure_ascii=False, indent=4, sort_keys=True)
