@@ -15,7 +15,7 @@ func main() {
 
 	router.Use(cors.New(cors.Config{
         AllowOrigins:     []string{"*"},
-        AllowMethods:     []string{"*"},
+        AllowMethods:     []string{"GET", "PUT", "POST", "DELETE"},
         AllowHeaders:     []string{"Origin"},
         ExposeHeaders:    []string{"Content-Length"},
         AllowCredentials: true,
@@ -25,7 +25,8 @@ func main() {
         MaxAge: 12 * time.Hour,
     }))
 
-	router.GET("/api/v1/movies", endpoints.GetMovies)
+	router.GET("/api/v1/movies", endpoints.GetMoviesEndpoint)
+	router.GET("/api/v1/members/:username", endpoints.GetMemberEndpoint)
 	
 	
 	router.Run("localhost:8080")

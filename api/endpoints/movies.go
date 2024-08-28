@@ -7,8 +7,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var repo = db.NewMovieRepo()
+var movieRepo = db.NewMovieRepo()
 
-func GetMovies(c *gin.Context) {
-    c.IndentedJSON(http.StatusOK, repo.GetAllMovies())
+func GetMoviesEndpoint(c *gin.Context) {
+	movies, err := movieRepo.GetAllMovies()
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve movies"})
+	} else {
+		c.IndentedJSON(http.StatusOK, movies)
+	}
 }
