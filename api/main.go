@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const LOCAL_HOST = "localhost:8080"
+
 func main() {
 	fmt.Println("hello world")
 	router := gin.Default()
@@ -20,14 +22,15 @@ func main() {
         ExposeHeaders:    []string{"Content-Length"},
         AllowCredentials: true,
         AllowOriginFunc: func(origin string) bool {
-            return origin == "localhost:8080"
+            return origin == LOCAL_HOST
         },
         MaxAge: 12 * time.Hour,
     }))
 
 	router.GET("/api/v1/movies", endpoints.GetMoviesEndpoint)
 	router.GET("/api/v1/members/:username", endpoints.GetMemberEndpoint)
+	router.POST("/api/v1/members/login", endpoints.MemberLoginEndpoint)
 	
 	
-	router.Run("localhost:8080")
+	router.Run(LOCAL_HOST)
 }
