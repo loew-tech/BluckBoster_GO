@@ -1,6 +1,9 @@
 package db
 
 import (
+	// "blockbuster/api/endpoints"
+	// "blockbuster/api/endpoints"
+
 	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -9,11 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
-
 const membersTableName = "BluckBoster_members"
 
 type MemberRepo struct {
-	svc dynamodb.DynamoDB
+	svc       dynamodb.DynamoDB
 	tableName string
 }
 
@@ -23,14 +25,14 @@ func NewMembersRepo() MemberRepo {
 	}))
 
 	return MemberRepo{
-		svc: *dynamodb.New(sess),
+		svc:       *dynamodb.New(sess),
 		tableName: membersTableName,
 	}
 }
 
 func (r MemberRepo) GetMemberByUsername(username string) (bool, Member, error) {
 	// @TODO: never actually return error (it's always nil)
-	queryInput  := &dynamodb.QueryInput{
+	queryInput := &dynamodb.QueryInput{
 		TableName: aws.String(r.tableName),
 		KeyConditions: map[string]*dynamodb.Condition{
 			USERNAME: {
@@ -60,12 +62,14 @@ func (r MemberRepo) GetMemberByUsername(username string) (bool, Member, error) {
 	return true, member, nil
 }
 
-func (r MemberRepo) AddToCart(username, l_name, moviedID string) (bool, error) {
+func (r MemberRepo) AddToCart(username, movieID, l_name string) (
+	bool, *dynamodb.UpdateItemOutput, error,
+) {
 	var c []*dynamodb.AttributeValue
-	c = append(c, &dynamodb.AttributeValue{S: aws.String(moviedID)})
+	c = append(c, &dynamodb.AttributeValue{S: aws.String(movieID)})
 	updateInput := &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
-		Key: map[string]*dynamodb.AttributeValue {
+		Key: map[string]*dynamodb.AttributeValue{
 			USERNAME: {
 				S: aws.String(username),
 			},
@@ -77,18 +81,17 @@ func (r MemberRepo) AddToCart(username, l_name, moviedID string) (bool, error) {
 			":cart": {
 				L: c,
 			},
-			":empty_list": {   
-				L: []*dynamodb.AttributeValue{},  
-			   },
+			":empty_list": {
+				L: []*dynamodb.AttributeValue{},
+			},
 		},
-		// @TODO: look into this and decide what to return
-		ReturnValues: aws.String("ALL_NEW"),
-		UpdateExpression: aws.String("SET cart = list_append(if_not_exists(cart, :empty_list), :cart)"), 
+		ReturnValues:     aws.String("UPDATED_NEW"),
+		UpdateExpression: aws.String("SET cart = list_append(if_not_exists(cart, :empty_list), :cart)"),
 	}
-	_, err := r.svc.UpdateItem(updateInput)
+	response, err := r.svc.UpdateItem(updateInput)
 	if err != nil {
-		log.Printf("Failed to add movie %s to %s cart", moviedID, username)
-		return false, nil
+		log.Printf("Failed to add movie %s to %s cart\n %s\n", movieID, username, err)
+		return false, response, err
 	}
-	return false, nil
+	return true, response, nil
 }
