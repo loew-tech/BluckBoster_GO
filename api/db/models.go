@@ -9,16 +9,19 @@ type Member struct {
 }
 
 type Movie struct {
-	Id        string
-	Title     string
-	Cast      []string
-	Director  string
-	Inventory int
-	Rented    int `json:"rented,omitempty"`
-	Rating    string
-	Review    string
-	Synopsis  string
-	Year      string
+	Id        string   `json:"id"`
+	Title     string   `json:"title"`
+	Cast      []string `json:"cast"`
+	Director  string   `json:"director"`
+	Inventory int      `json:"inventory"`
+	Rented    int      `json:"rented,omitempty"`
+	Rating    string   `json:"rating"`
+	Review    string   `json:"review"`
+	Synopsis  string   `json:"synopsis"`
+	Year      string   `json:"year"`
 }
 
-// @TODO: add omitempty to relevant fields; add cart to member
+type MovieIdAndTitle struct {
+	Id    string `json:"id"`
+	Title string `json:"title"`
+}

@@ -35,6 +35,11 @@ var TestMovies = []Movie{
 	},
 }
 
+var TestMovieIDs = []string{
+	"l.a._confidential_1997",
+	"casablanca_1942",
+}
+
 var TestMember = Member{
 	FirstName: "Sea",
 	LastName:  "Captain",
