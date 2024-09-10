@@ -1,14 +1,12 @@
 package db
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 )
 
 const movieTableName = "BluckBoster_movies"
@@ -97,9 +95,6 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error,
 		keys = append(keys, m)
 	}
 
-	proj := expression.NamesList(expression.Name(ID), expression.Name(TITLE))
-	expr, _ := expression.NewBuilder().WithProjection(proj).Build()
-	fmt.Println("$$ expr.Projection=", expr.Projection())
 	input := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]*dynamodb.KeysAndAttributes{
 			r.tableName: {
@@ -109,14 +104,13 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error,
 		},
 	}
 
-	movies, errors := make([]MovieIdAndTitle, 0), make([]error, 0)
 	result, err := r.svc.BatchGetItem(input)
-
 	if err != nil {
 		log.Printf("Err fetching movies from cloud: %s\n", err)
 		return nil, nil, err
 	}
 
+	movies, errors := make([]MovieIdAndTitle, 0), make([]error, 0)
 	for _, v := range result.Responses {
 		for _, m := range v {
 			movie := MovieIdAndTitle{}

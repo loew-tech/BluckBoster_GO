@@ -62,9 +62,20 @@ func (r MemberRepo) GetMemberByUsername(username string) (bool, Member, error) {
 	return true, member, nil
 }
 
-func (r MemberRepo) AddToCart(username, movieID, l_name string) (
+func (r MemberRepo) AddToCart(username, movieID string) (
 	bool, *dynamodb.UpdateItemOutput, error,
 ) {
+	ids, err := r.GetCartIDs(username)
+	if err != nil {
+		log.Printf("Failed checking to see if %s is in %s cart", movieID, username)
+		return false, nil, err
+	}
+	for _, id := range ids {
+		if id == movieID {
+			return false, nil, nil
+		}
+	}
+
 	var c []*dynamodb.AttributeValue
 	c = append(c, &dynamodb.AttributeValue{S: aws.String(movieID)})
 	updateInput := &dynamodb.UpdateItemInput{
@@ -72,9 +83,6 @@ func (r MemberRepo) AddToCart(username, movieID, l_name string) (
 		Key: map[string]*dynamodb.AttributeValue{
 			USERNAME: {
 				S: aws.String(username),
-			},
-			LASTNAME: {
-				S: aws.String(l_name),
 			},
 		},
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
@@ -94,4 +102,30 @@ func (r MemberRepo) AddToCart(username, movieID, l_name string) (
 		return false, response, err
 	}
 	return true, response, nil
+}
+
+func (r MemberRepo) GetCartIDs(username string) ([]string, error) {
+	input := &dynamodb.GetItemInput{
+		TableName: &r.tableName,
+		Key: map[string]*dynamodb.AttributeValue{
+			USERNAME: {
+				S: aws.String(username),
+			},
+		},
+		ProjectionExpression: aws.String("cart"),
+	}
+
+	response, err := r.svc.GetItem(input)
+	if err != nil {
+		log.Printf("Err fetching movies from cloud: %s\n", err)
+		return nil, err
+	}
+
+	cart := Cart{}
+	err = dynamodbattribute.UnmarshalMap(response.Item, &cart)
+	if err != nil {
+		log.Printf("Err unmarshalling movies from: %s\n", err)
+		return nil, err
+	}
+	return cart.Cart, err
 }

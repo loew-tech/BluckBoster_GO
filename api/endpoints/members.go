@@ -57,7 +57,6 @@ func MemberLoginEndpoint(c *gin.Context) {
 
 type AddToCartRequest struct {
 	Username string `json:"username"`
-	LastName string `json:"last_name"`
 	MovieID  string `json:"movie_id"`
 }
 
@@ -71,7 +70,7 @@ func AddToCartEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	inserted, response, err := memberRepo.AddToCart(req.Username, req.MovieID, req.LastName)
+	inserted, response, err := memberRepo.AddToCart(req.Username, req.MovieID)
 	if err != nil {
 		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
 		c.IndentedJSON(
@@ -81,12 +80,34 @@ func AddToCartEndpoint(c *gin.Context) {
 		return
 	}
 	if !inserted {
-		msg := fmt.Sprintf("Failed to add movie %s to %s cart", req.MovieID, req.Username)
-		c.IndentedJSON(
-			http.StatusNotFound,
-			gin.H{"msg": msg},
-		)
+		if response == nil {
+			msg := fmt.Sprintf("Movie %s already in %s cart", req.MovieID, req.Username)
+			c.IndentedJSON(
+				http.StatusNotFound,
+				gin.H{"msg": msg},
+			)
+		} else {
+			msg := fmt.Sprintf("Failed to add movie %s to %s cart", req.MovieID, req.Username)
+			c.IndentedJSON(
+				http.StatusNotFound,
+				gin.H{"msg": msg},
+			)
+		}
+
 	} else {
 		c.IndentedJSON(http.StatusAccepted, response)
 	}
+}
+
+func GetCartIDsEndpoint(c *gin.Context) {
+	movies, err := memberRepo.GetCartIDs(c.Param("username"))
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+	} else {
+		for m := range movies {
+			fmt.Println(m)
+		}
+		c.IndentedJSON(http.StatusAccepted, movies)
+	}
+
 }

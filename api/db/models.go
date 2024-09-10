@@ -1,5 +1,9 @@
 package db
 
+type Cart struct {
+	Cart []string `json:"cart,omitempty"`
+}
+
 type Member struct {
 	Username  string   `json:"username"`
 	FirstName string   `json:"first_name"`
