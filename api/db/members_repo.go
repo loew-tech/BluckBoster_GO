@@ -4,6 +4,7 @@ import (
 	// "blockbuster/api/endpoints"
 	// "blockbuster/api/endpoints"
 
+	"fmt"
 	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -62,20 +63,31 @@ func (r MemberRepo) GetMemberByUsername(username string) (bool, Member, error) {
 	return true, member, nil
 }
 
+func (r MemberRepo) cartContains(username, movieID string) (bool, int, error) {
+	ids, err := r.GetCartIDs(username)
+	if err != nil {
+		log.Printf("Failed checking to see if %s is in %s cart\n", movieID, username)
+		return false, -1, err
+	}
+	for i, id := range ids {
+		if id == movieID {
+			return true, i, nil
+		}
+	}
+	return false, -1, nil
+}
+
 func (r MemberRepo) AddToCart(username, movieID string) (
 	bool, *dynamodb.UpdateItemOutput, error,
 ) {
-	ids, err := r.GetCartIDs(username)
+	found, _, err := r.cartContains(username, movieID)
 	if err != nil {
-		log.Printf("Failed checking to see if %s is in %s cart", movieID, username)
+		log.Printf("Cannot determine if %s is in %s cart\n", movieID, username)
 		return false, nil, err
 	}
-	for _, id := range ids {
-		if id == movieID {
-			return false, nil, nil
-		}
+	if found {
+		return false, nil, nil
 	}
-
 	var c []*dynamodb.AttributeValue
 	c = append(c, &dynamodb.AttributeValue{S: aws.String(movieID)})
 	updateInput := &dynamodb.UpdateItemInput{
@@ -96,6 +108,37 @@ func (r MemberRepo) AddToCart(username, movieID string) (
 		ReturnValues:     aws.String("UPDATED_NEW"),
 		UpdateExpression: aws.String("SET cart = list_append(if_not_exists(cart, :empty_list), :cart)"),
 	}
+	response, err := r.svc.UpdateItem(updateInput)
+	if err != nil {
+		log.Printf("Failed to add movie %s to %s cart\n %s\n", movieID, username, err)
+		return false, response, err
+	}
+	return true, response, nil
+}
+
+func (r MemberRepo) RemoveFromCart(username, movieID string) (
+	bool, *dynamodb.UpdateItemOutput, error,
+) {
+	found, index, err := r.cartContains(username, movieID)
+	if err != nil {
+		log.Printf("Cannot determine if %s is in %s cart\n", movieID, username)
+		return false, nil, err
+	}
+	if !found {
+		return false, nil, nil
+	}
+
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			USERNAME: {
+				S: aws.String(username),
+			},
+		},
+		ReturnValues:     aws.String("UPDATED_NEW"),
+		UpdateExpression: aws.String(fmt.Sprintf("REMOVE cart[%v]", index)),
+	}
+
 	response, err := r.svc.UpdateItem(updateInput)
 	if err != nil {
 		log.Printf("Failed to add movie %s to %s cart\n %s\n", movieID, username, err)

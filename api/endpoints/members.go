@@ -55,13 +55,13 @@ func MemberLoginEndpoint(c *gin.Context) {
 	}
 }
 
-type AddToCartRequest struct {
+type ModifyCartRequest struct {
 	Username string `json:"username"`
 	MovieID  string `json:"movie_id"`
 }
 
 func AddToCartEndpoint(c *gin.Context) {
-	req := AddToCartRequest{}
+	req := ModifyCartRequest{}
 	err := c.BindJSON(&req)
 	if err != nil {
 		c.IndentedJSON(
@@ -88,6 +88,45 @@ func AddToCartEndpoint(c *gin.Context) {
 			)
 		} else {
 			msg := fmt.Sprintf("Failed to add movie %s to %s cart", req.MovieID, req.Username)
+			c.IndentedJSON(
+				http.StatusNotFound,
+				gin.H{"msg": msg},
+			)
+		}
+
+	} else {
+		c.IndentedJSON(http.StatusAccepted, response)
+	}
+}
+
+func RemoveFromCartEndpoint(c *gin.Context) {
+	req := ModifyCartRequest{}
+	err := c.BindJSON(&req)
+	if err != nil {
+		c.IndentedJSON(
+			http.StatusBadRequest,
+			gin.H{"msg": "Bad Request for AddToCart"},
+		)
+		return
+	}
+	removed, response, err := memberRepo.RemoveFromCart(req.Username, req.MovieID)
+	if err != nil {
+		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
+		c.IndentedJSON(
+			http.StatusNotFound,
+			gin.H{"msg": msg},
+		)
+		return
+	}
+	if !removed {
+		if response == nil {
+			msg := fmt.Sprintf("Movie %s was not %s cart", req.MovieID, req.Username)
+			c.IndentedJSON(
+				http.StatusNotFound,
+				gin.H{"msg": msg},
+			)
+		} else {
+			msg := fmt.Sprintf("Failed to remove movie %s from %s cart", req.MovieID, req.Username)
 			c.IndentedJSON(
 				http.StatusNotFound,
 				gin.H{"msg": msg},
