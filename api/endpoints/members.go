@@ -55,6 +55,18 @@ func MemberLoginEndpoint(c *gin.Context) {
 	}
 }
 
+func GetCartIDsEndpoint(c *gin.Context) {
+	movies, err := memberRepo.GetCartIDs(c.Param("username"))
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+	} else {
+		for m := range movies {
+			fmt.Println(m)
+		}
+		c.IndentedJSON(http.StatusAccepted, movies)
+	}
+}
+
 type ModifyCartRequest struct {
 	Username string `json:"username"`
 	MovieID  string `json:"movie_id"`
@@ -136,17 +148,4 @@ func RemoveFromCartEndpoint(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusAccepted, response)
 	}
-}
-
-func GetCartIDsEndpoint(c *gin.Context) {
-	movies, err := memberRepo.GetCartIDs(c.Param("username"))
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
-	} else {
-		for m := range movies {
-			fmt.Println(m)
-		}
-		c.IndentedJSON(http.StatusAccepted, movies)
-	}
-
 }
