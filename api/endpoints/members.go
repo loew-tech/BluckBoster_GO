@@ -82,7 +82,7 @@ func AddToCartEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	inserted, response, err := memberRepo.AddToCart(req.Username, req.MovieID)
+	inserted, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.ADD)
 	if err != nil {
 		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
 		c.IndentedJSON(
@@ -121,7 +121,7 @@ func RemoveFromCartEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	removed, response, err := memberRepo.RemoveFromCart(req.Username, req.MovieID)
+	removed, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.DELETE)
 	if err != nil {
 		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
 		c.IndentedJSON(

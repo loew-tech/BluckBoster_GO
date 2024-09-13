@@ -62,20 +62,6 @@ func (r MemberRepo) GetMemberByUsername(username string) (bool, Member, error) {
 	return true, member, nil
 }
 
-func (r MemberRepo) cartContains(username, movieID string) (bool, int, error) {
-	ids, err := r.GetCartIDs(username)
-	if err != nil {
-		log.Printf("Failed checking to see if %s is in %s cart\n", movieID, username)
-		return false, -1, err
-	}
-	for i, id := range ids {
-		if id == movieID {
-			return true, i, nil
-		}
-	}
-	return false, -1, nil
-}
-
 func (r MemberRepo) GetCartIDs(username string) ([]string, error) {
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
@@ -103,62 +89,25 @@ func (r MemberRepo) GetCartIDs(username string) ([]string, error) {
 	return cart.Cart, err
 }
 
-func (r MemberRepo) AddToCart(username, movieID string) (
+func (r MemberRepo) ModifyCart(username, movieID, updateKey string) (
 	bool, *dynamodb.UpdateItemOutput, error,
 ) {
 
-	name, movie, errN, errM := MarshallUsernameAndMovieID(username, movieID)
-	if errN != nil || errM != nil {
-		return false, nil, fmt.Errorf("failed to marshal data errName=%s errMovie=%s", errN, errM)
-	}
-
-	found, _, err := r.cartContains(username, movieID)
-	if err != nil || found {
-		return false, nil, err
+	name, err := attributevalue.Marshal(username)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to marshal data %s", err)
 	}
 
 	updateInput := &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key:       map[string]types.AttributeValue{USERNAME: name},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":cart": &types.AttributeValueMemberL{
-				Value: []types.AttributeValue{movie},
-			},
-			":empty_cart": &types.AttributeValueMemberL{
-				Value: make([]types.AttributeValue, 0),
+			":cart": &types.AttributeValueMemberSS{
+				Value: []string{movieID},
 			},
 		},
 		ReturnValues:     types.ReturnValueUpdatedNew,
-		UpdateExpression: aws.String("SET cart = list_append(if_not_exists(cart, :empty_cart), :cart)"),
-	}
-
-	response, err := r.client.UpdateItem(context.TODO(), updateInput)
-	if err != nil {
-		log.Printf("Failed to add movie %s to %s cart\n %s\n", movieID, username, err)
-		return false, response, err
-	}
-	return true, response, nil
-}
-
-func (r MemberRepo) RemoveFromCart(username, movieID string) (
-	bool, *dynamodb.UpdateItemOutput, error,
-) {
-
-	name, _, errN, errM := MarshallUsernameAndMovieID(username, movieID)
-	if errN != nil || errM != nil {
-		return false, nil, fmt.Errorf("failed to marshal data errName=%s errMovie=%s", errN, errM)
-	}
-
-	found, index, err := r.cartContains(username, movieID)
-	if err != nil || !found {
-		return false, nil, err
-	}
-
-	updateInput := &dynamodb.UpdateItemInput{
-		TableName:        aws.String(r.tableName),
-		Key:              map[string]types.AttributeValue{USERNAME: name},
-		ReturnValues:     types.ReturnValueUpdatedNew,
-		UpdateExpression: aws.String(fmt.Sprintf("REMOVE cart[%v]", index)),
+		UpdateExpression: aws.String(fmt.Sprintf("%s cart :cart", updateKey)),
 	}
 
 	response, err := r.client.UpdateItem(context.TODO(), updateInput)
