@@ -4,9 +4,11 @@ import (
 	"context"
 	"log"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 const movieTableName = "BluckBoster_movies"
@@ -86,45 +88,39 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 // 	return movie, nil
 // }
 
-// func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error, error) {
-// 	var keys []map[string]*dynamodb.AttributeValue
-// 	for _, mid := range movieIDs {
-// 		m := map[string]*dynamodb.AttributeValue{
-// 			ID: {
-// 				S: aws.String(mid),
-// 			},
-// 		}
-// 		keys = append(keys, m)
-// 	}
+func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error, error) {
 
-// 	input := &dynamodb.BatchGetItemInput{
-// 		RequestItems: map[string]*dynamodb.KeysAndAttributes{
-// 			r.tableName: {
-// 				Keys:                 keys,
-// 				ProjectionExpression: aws.String("id, title"),
-// 			},
-// 		},
-// 	}
+	var keys []map[string]types.AttributeValue
+	for _, mid := range movieIDs {
+		keys = append(keys, map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: mid}})
+	}
 
-// 	result, err := r.svc.BatchGetItem(input)
-// 	if err != nil {
-// 		log.Printf("Err fetching movies from cloud: %s\n", err)
-// 		return nil, nil, err
-// 	}
+	input := &dynamodb.BatchGetItemInput{
+		RequestItems: map[string]types.KeysAndAttributes{
+			r.tableName: {
+				Keys:                 keys,
+				ProjectionExpression: aws.String("id, title, inventory"),
+			},
+		},
+	}
 
-// 	movies, errors := make([]MovieIdAndTitle, 0), make([]error, 0)
-// 	for _, v := range result.Responses {
-// 		for _, m := range v {
-// 			movie := MovieIdAndTitle{}
-// 			err = dynamodbattribute.UnmarshalMap(m, &movie)
+	result, err := r.client.BatchGetItem(context.TODO(), input)
+	if err != nil {
+		log.Printf("Err fetching movies from cloud: %s\n", err)
+		return nil, nil, err
+	}
 
-// 			if err != nil {
-// 				log.Printf("Got error unmarshalling: %s", err)
-// 				errors = append(errors, err)
-// 			}
-// 			movies = append(movies, movie)
-
-// 		}
-// 	}
-// 	return movies, errors, nil
-// }
+	movies, errors := make([]MovieIdAndTitle, 0), make([]error, 0)
+	for _, v := range result.Responses {
+		for _, m := range v {
+			movie := MovieIdAndTitle{}
+			if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
+				log.Printf("Got error unmarshalling: %s", err)
+				errors = append(errors, err)
+				continue
+			}
+			movies = append(movies, movie)
+		}
+	}
+	return movies, errors, nil
+}

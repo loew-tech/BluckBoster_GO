@@ -13,7 +13,7 @@ type Member struct {
 }
 
 type Movie struct {
-	Id        string   `json:"id"`
+	ID        string   `json:"id"`
 	Title     string   `json:"title"`
 	Cast      []string `json:"cast"`
 	Director  string   `json:"director"`
@@ -26,6 +26,7 @@ type Movie struct {
 }
 
 type MovieIdAndTitle struct {
-	Id    string `json:"id"`
-	Title string `json:"title"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Inventory int    `json:"inventory"`
 }
