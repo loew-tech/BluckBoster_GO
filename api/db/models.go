@@ -25,7 +25,7 @@ type Movie struct {
 	Year      string   `json:"year"`
 }
 
-type MovieIdAndTitle struct {
+type CartMovie struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	Inventory int    `json:"inventory"`

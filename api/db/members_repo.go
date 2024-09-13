@@ -18,17 +18,19 @@ const membersTableName = "BluckBoster_members"
 type MemberRepo struct {
 	client    dynamodb.Client
 	tableName string
+	MovieRepo MovieRepo
 }
 
 func NewMembersRepo() MemberRepo {
 	config, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		log.Fatalln("FAILED TO INSTANTIATE MemberRepo")
+		log.Fatalln("FAILED TO INSTANTIATE MemberRepo", err)
 	}
 
 	return MemberRepo{
 		client:    *dynamodb.NewFromConfig(config),
 		tableName: membersTableName,
+		MovieRepo: NewMovieRepo(),
 	}
 }
 
@@ -89,10 +91,23 @@ func (r MemberRepo) GetCartIDs(username string) ([]string, error) {
 	return cart.Cart, err
 }
 
+func (r MemberRepo) GetCartMovies(username string) ([]CartMovie, error) {
+	ids, err := r.GetCartIDs(username)
+	if err != nil {
+		log.Printf("Err in fetching cart movie ids for %s\n", username)
+		return nil, err
+	}
+	movies, err := r.MovieRepo.GetMoviesByID(ids)
+	if err != nil {
+		log.Printf("Failed to get cart. %s\n", err)
+		return nil, err
+	}
+	return movies, nil
+}
+
 func (r MemberRepo) ModifyCart(username, movieID, updateKey string) (
 	bool, *dynamodb.UpdateItemOutput, error,
 ) {
-
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to marshal data %s", err)

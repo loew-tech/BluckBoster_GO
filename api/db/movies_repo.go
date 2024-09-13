@@ -88,7 +88,7 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 // 	return movie, nil
 // }
 
-func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error, error) {
+func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]CartMovie, error) {
 
 	var keys []map[string]types.AttributeValue
 	for _, mid := range movieIDs {
@@ -107,20 +107,19 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error,
 	result, err := r.client.BatchGetItem(context.TODO(), input)
 	if err != nil {
 		log.Printf("Err fetching movies from cloud: %s\n", err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	movies, errors := make([]MovieIdAndTitle, 0), make([]error, 0)
+	movies := make([]CartMovie, 0)
 	for _, v := range result.Responses {
 		for _, m := range v {
-			movie := MovieIdAndTitle{}
+			movie := CartMovie{}
 			if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
 				log.Printf("Got error unmarshalling: %s", err)
-				errors = append(errors, err)
 				continue
 			}
 			movies = append(movies, movie)
 		}
 	}
-	return movies, errors, nil
+	return movies, nil
 }

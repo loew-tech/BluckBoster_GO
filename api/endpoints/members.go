@@ -23,12 +23,12 @@ func GetMemberEndpoint(c *gin.Context) {
 	}
 }
 
-type LoginRequest struct {
+type Username struct {
 	Username string `json:"username"`
 }
 
 func MemberLoginEndpoint(c *gin.Context) {
-	lr := LoginRequest{}
+	lr := Username{}
 	err := c.BindJSON(&lr)
 	if err != nil {
 		c.IndentedJSON(
@@ -60,9 +60,16 @@ func GetCartIDsEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
-		for m := range movies {
-			fmt.Println(m)
-		}
+		c.IndentedJSON(http.StatusAccepted, movies)
+	}
+}
+
+func GetCartMoviesEndpoint(c *gin.Context) {
+	movies, err := memberRepo.GetCartIDs(c.Param("username"))
+	fmt.Println("tick", err)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+	} else {
 		c.IndentedJSON(http.StatusAccepted, movies)
 	}
 }
@@ -78,7 +85,7 @@ func AddToCartEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusBadRequest,
-			gin.H{"msg": "Bad Request for AddToCart"},
+			gin.H{"msg": "Bad Request for ModifyCart"},
 		)
 		return
 	}
@@ -117,7 +124,7 @@ func RemoveFromCartEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusBadRequest,
-			gin.H{"msg": "Bad Request for AddToCart"},
+			gin.H{"msg": "Bad Request for ModifyCart"},
 		)
 		return
 	}
