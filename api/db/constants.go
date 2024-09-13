@@ -6,4 +6,7 @@ const (
 	USERNAME = "username"
 	LASTNAME = "last_name"
 	CART     = "cart"
+
+	ADD    = "ADD"
+	DELETE = "DELETE"
 )
