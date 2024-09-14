@@ -9,4 +9,8 @@ const (
 
 	ADD    = "ADD"
 	DELETE = "DELETE"
+
+	MemberTypeBasic   = "basic"
+	MemberTypeAdvance = "advance"
+	MemberTypePremium = "premium"
 )

@@ -41,7 +41,7 @@ func MemberLoginEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusNotFound,
-			gin.H{"msg": "Failed to retrieve user"},
+			gin.H{"msg": "Error retrieving user"},
 		)
 	} else {
 		if found {
@@ -65,10 +65,14 @@ func GetCartIDsEndpoint(c *gin.Context) {
 }
 
 func GetCartMoviesEndpoint(c *gin.Context) {
-	movies, err := memberRepo.GetCartIDs(c.Param("username"))
-	fmt.Println("tick", err)
+	ids, err := memberRepo.GetCartIDs(c.Param("username"))
 	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart ids"})
+	}
+
+	movies, err := memberRepo.MovieRepo.GetMoviesByID(ids)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart ids"})
 	} else {
 		c.IndentedJSON(http.StatusAccepted, movies)
 	}
@@ -102,7 +106,7 @@ func AddToCartEndpoint(c *gin.Context) {
 		if response == nil {
 			msg := fmt.Sprintf("Movie %s already in %s cart", req.MovieID, req.Username)
 			c.IndentedJSON(
-				http.StatusNotFound,
+				http.StatusNotModified,
 				gin.H{"msg": msg},
 			)
 		} else {
@@ -141,7 +145,7 @@ func RemoveFromCartEndpoint(c *gin.Context) {
 		if response == nil {
 			msg := fmt.Sprintf("Movie %s was not %s cart", req.MovieID, req.Username)
 			c.IndentedJSON(
-				http.StatusNotFound,
+				http.StatusNotModified,
 				gin.H{"msg": msg},
 			)
 		} else {

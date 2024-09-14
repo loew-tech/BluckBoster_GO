@@ -45,4 +45,5 @@ var TestMember = Member{
 	LastName:  "Captain",
 	Username:  "sea_captain",
 	Type:      "advanced",
+	Cart:      TestMovieIDs,
 }

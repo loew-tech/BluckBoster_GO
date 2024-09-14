@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -31,6 +33,10 @@ func NewMovieRepo() MovieRepo {
 }
 
 func (r MovieRepo) GetAllMovies() ([]Movie, error) {
+
+	// @TODO: remove debug return
+	return TestMovies, nil
+
 	params := &dynamodb.ScanInput{
 		TableName: &r.tableName,
 	}
@@ -122,4 +128,34 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]CartMovie, error) {
 		}
 	}
 	return movies, nil
+}
+
+func (r MovieRepo) RentMovie(movie Movie) (bool, error) {
+
+	mid, err := attributevalue.Marshal(movie.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal data %s", err)
+	}
+
+	updateInventoryAndRentedInput := &dynamodb.UpdateItemInput{
+		TableName: aws.String(movieTableName),
+		Key:       map[string]types.AttributeValue{ID: mid},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":inventory": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Inventory - 1),
+			},
+			":rented": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Rented + 1),
+			},
+		},
+		ReturnValues:     types.ReturnValueUpdatedNew,
+		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
+	}
+
+	_, err = r.client.UpdateItem(context.TODO(), updateInventoryAndRentedInput)
+	if err != nil {
+		log.Printf("Failed to checkout %s\n%s\n", movie.ID, err)
+		return false, err
+	}
+	return true, nil
 }

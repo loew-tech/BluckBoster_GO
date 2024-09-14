@@ -5,11 +5,12 @@ type Cart struct {
 }
 
 type Member struct {
-	Username  string   `json:"username"`
-	FirstName string   `json:"first_name"`
-	LastName  string   `json:"last_name"`
-	Cart      []string `json:"cart,omitempty"`
-	Type      string   `json:"member_type"`
+	Username   string   `json:"username"`
+	FirstName  string   `json:"first_name"`
+	LastName   string   `json:"last_name"`
+	Cart       []string `json:"cart,omitempty"`
+	CheckedOut []string `json:"checked_out,omitempty"`
+	Type       string   `json:"member_type"`
 }
 
 type Movie struct {
