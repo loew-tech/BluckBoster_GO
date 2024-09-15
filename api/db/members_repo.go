@@ -76,8 +76,10 @@ func (r MemberRepo) GetCartIDs(username string) ([]string, error) {
 		return nil, err
 	}
 	input := &dynamodb.GetItemInput{
-		Key:             map[string]types.AttributeValue{USERNAME: name},
-		TableName:       &r.tableName,
+		Key:       map[string]types.AttributeValue{USERNAME: name},
+		TableName: &r.tableName,
+		// @TODO: what happens if this list is empty? Can I combine this and get user?
+		// @@ODO:	need to refactor GetMember to use getitem instead of query
 		AttributesToGet: []string{CART},
 	}
 
@@ -103,7 +105,7 @@ func (r MemberRepo) GetCartMovies(username string) ([]CartMovie, error) {
 		return nil, err
 	}
 
-	movies, err := r.MovieRepo.GetMoviesByID(ids)
+	_, movies, err := r.MovieRepo.GetMoviesByID(ids, FOR_CART)
 	if err != nil {
 		log.Printf("Failed to get cart. %s\n", err)
 		return nil, err
@@ -140,19 +142,22 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string) (
 }
 
 func (r MemberRepo) Checkout(username string, movieIDs []string) (
-	bool, *dynamodb.UpdateItemOutput, []string, int, error,
+	bool, []string, int, error,
 ) {
 	rented := 0
 	messages := make([]string, 0)
 
 	found, user, err := r.GetMemberByUsername(username)
 	if err != nil || !found {
-		return false, nil, messages, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
+		return false, nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
+	}
+	if MemberTypes[user.Type]+len(movieIDs) < len(user.CheckedOut) {
+		return false, nil, rented, nil
 	}
 
-	movies, err := r.MovieRepo.GetMoviesByID(movieIDs)
+	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_FOR_CART)
 	if err != nil {
-		return false, nil, messages, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
+		return false, messages, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
 	}
 
 	for _, movie := range movies {
@@ -162,15 +167,22 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) (
 		contains, _ := utils.SliceContains(user.CheckedOut, movie.ID)
 		if contains {
 			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
+			continue
 		}
-
+		success, err := r.checkoutMovie(user, movie)
+		if err != nil {
+			messages = append(messages, fmt.Sprintf("Failed to rent %s", movie.ID))
+		}
+		if success {
+			rented++
+		}
 	}
-	return false, nil, messages, rented, nil
+	return 0 < rented, messages, rented, nil
 }
 
-func (r MemberRepo) CheckoutMovie(user Member, movie Movie) (bool, error) {
+func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
 	success, err := r.MovieRepo.RentMovie(movie)
-	if !success {
+	if err != nil {
 		return false, fmt.Errorf("err checking %s\n%s", movie.Title, err)
 	}
 	if !success {
@@ -182,6 +194,7 @@ func (r MemberRepo) CheckoutMovie(user Member, movie Movie) (bool, error) {
 		return false, fmt.Errorf("failed to marshal data %s", err)
 	}
 
+	// @TODO: move this as additional ExpressionAttributeValue to UpdateCart -> add boolean flag
 	updateCheckedOutInput := &dynamodb.UpdateItemInput{
 		TableName: aws.String(membersTableName),
 		Key:       map[string]types.AttributeValue{USERNAME: name},

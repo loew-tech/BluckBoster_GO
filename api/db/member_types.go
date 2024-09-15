@@ -3,7 +3,7 @@ package db
 import "math"
 
 var MemberTypes = map[string]int{
-	MemberTypeBasic:   5,
-	MemberTypeAdvance: 8,
-	MemberTypePremium: math.MaxInt64,
+	MEMBER_TYPE_BASIC:   5,
+	MEMBER_TYPE_ADVANCE: 8,
+	MEMBER_TYPE_PREMIUM: math.MaxInt64,
 }

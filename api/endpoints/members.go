@@ -43,15 +43,15 @@ func MemberLoginEndpoint(c *gin.Context) {
 			http.StatusNotFound,
 			gin.H{"msg": "Error retrieving user"},
 		)
+		return
+	}
+	if found {
+		c.IndentedJSON(http.StatusOK, member)
 	} else {
-		if found {
-			c.IndentedJSON(http.StatusOK, member)
-		} else {
-			c.IndentedJSON(
-				http.StatusNotFound,
-				gin.H{"msg": "Failed to find user"},
-			)
-		}
+		c.IndentedJSON(
+			http.StatusNotFound,
+			gin.H{"msg": "Failed to find user"},
+		)
 	}
 }
 
@@ -65,12 +65,7 @@ func GetCartIDsEndpoint(c *gin.Context) {
 }
 
 func GetCartMoviesEndpoint(c *gin.Context) {
-	ids, err := memberRepo.GetCartIDs(c.Param("username"))
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart ids"})
-	}
-
-	movies, err := memberRepo.MovieRepo.GetMoviesByID(ids)
+	movies, err := memberRepo.GetCartMovies(c.Param("username"))
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart ids"})
 	} else {
@@ -97,7 +92,7 @@ func AddToCartEndpoint(c *gin.Context) {
 	if err != nil {
 		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
 		c.IndentedJSON(
-			http.StatusNotFound,
+			http.StatusInternalServerError,
 			gin.H{"msg": msg},
 		)
 		return
@@ -134,16 +129,16 @@ func RemoveFromCartEndpoint(c *gin.Context) {
 	}
 	removed, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.DELETE)
 	if err != nil {
-		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
+		msg := fmt.Sprintf("Error removing %s from %s cart", req.MovieID, req.Username)
 		c.IndentedJSON(
-			http.StatusNotFound,
+			http.StatusInternalServerError,
 			gin.H{"msg": msg},
 		)
 		return
 	}
 	if !removed {
 		if response == nil {
-			msg := fmt.Sprintf("Movie %s was not %s cart", req.MovieID, req.Username)
+			msg := fmt.Sprintf("%s was not in %s cart", req.MovieID, req.Username)
 			c.IndentedJSON(
 				http.StatusNotModified,
 				gin.H{"msg": msg},
@@ -151,7 +146,7 @@ func RemoveFromCartEndpoint(c *gin.Context) {
 		} else {
 			msg := fmt.Sprintf("Failed to remove movie %s from %s cart", req.MovieID, req.Username)
 			c.IndentedJSON(
-				http.StatusNotFound,
+				http.StatusInternalServerError,
 				gin.H{"msg": msg},
 			)
 		}

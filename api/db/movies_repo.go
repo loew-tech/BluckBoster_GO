@@ -33,10 +33,6 @@ func NewMovieRepo() MovieRepo {
 }
 
 func (r MovieRepo) GetAllMovies() ([]Movie, error) {
-
-	// @TODO: remove debug return
-	return TestMovies, nil
-
 	params := &dynamodb.ScanInput{
 		TableName: &r.tableName,
 	}
@@ -56,7 +52,6 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 		}
 		movies = append(movies, movie)
 	}
-
 	return movies, nil
 }
 
@@ -94,18 +89,21 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 // 	return movie, nil
 // }
 
-func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]CartMovie, error) {
+func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []CartMovie, error) {
 
 	var keys []map[string]types.AttributeValue
 	for _, mid := range movieIDs {
 		keys = append(keys, map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: mid}})
 	}
-
+	expr := ""
+	if forCart {
+		expr = "id, title, inventory"
+	}
 	input := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]types.KeysAndAttributes{
 			r.tableName: {
 				Keys:                 keys,
-				ProjectionExpression: aws.String("id, title, inventory"),
+				ProjectionExpression: aws.String(expr),
 			},
 		},
 	}
@@ -113,13 +111,21 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]CartMovie, error) {
 	result, err := r.client.BatchGetItem(context.TODO(), input)
 	if err != nil {
 		log.Printf("Err fetching movies from cloud: %s\n", err)
-		return nil, err
+		return nil, nil, err
 	}
 
-	movies := make([]CartMovie, 0)
+	movies, cartMovies := make([]Movie, 0), make([]CartMovie, 0)
 	for _, v := range result.Responses {
 		for _, m := range v {
-			movie := CartMovie{}
+			if forCart {
+				cartMovie := CartMovie{}
+				if err = attributevalue.UnmarshalMap(m, &cartMovie); err != nil {
+					log.Printf("Got error unmarshalling: %s", err)
+					continue
+				}
+				cartMovies = append(cartMovies, cartMovie)
+			}
+			movie := Movie{}
 			if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
 				log.Printf("Got error unmarshalling: %s", err)
 				continue
@@ -127,7 +133,7 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]CartMovie, error) {
 			movies = append(movies, movie)
 		}
 	}
-	return movies, nil
+	return movies, cartMovies, nil
 }
 
 func (r MovieRepo) RentMovie(movie Movie) (bool, error) {

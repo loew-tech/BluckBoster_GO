@@ -10,7 +10,10 @@ const (
 	ADD    = "ADD"
 	DELETE = "DELETE"
 
-	MemberTypeBasic   = "basic"
-	MemberTypeAdvance = "advance"
-	MemberTypePremium = "premium"
+	MEMBER_TYPE_BASIC   = "basic"
+	MEMBER_TYPE_ADVANCE = "advance"
+	MEMBER_TYPE_PREMIUM = "premium"
+
+	FOR_CART     = true
+	NOT_FOR_CART = false
 )
