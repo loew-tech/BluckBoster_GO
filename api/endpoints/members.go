@@ -11,9 +11,10 @@ import (
 var memberRepo = db.NewMembersRepo()
 
 func GetMemberEndpoint(c *gin.Context) {
-	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"))
+	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"), db.NOT_CART)
 	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user"})
+		// @TODO sometimes should this be a 502?
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user"})
 	} else {
 		if found {
 			c.IndentedJSON(http.StatusOK, member)
@@ -37,7 +38,7 @@ func MemberLoginEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	found, member, err := memberRepo.GetMemberByUsername(un.Username)
+	found, member, err := memberRepo.GetMemberByUsername(un.Username, db.NOT_CART)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusNotFound,
@@ -56,11 +57,11 @@ func MemberLoginEndpoint(c *gin.Context) {
 }
 
 func GetCartIDsEndpoint(c *gin.Context) {
-	movies, err := memberRepo.GetCartIDs(c.Param("username"))
+	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), db.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
-		c.IndentedJSON(http.StatusAccepted, movies)
+		c.IndentedJSON(http.StatusAccepted, user.Cart)
 	}
 }
 

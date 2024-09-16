@@ -1,10 +1,10 @@
 package db
 
 const (
-	ID       = "id"
-	USERNAME = "username"
-	LASTNAME = "last_name"
-	CART     = "cart"
+	ID          = "id"
+	USERNAME    = "username"
+	LASTNAME    = "last_name"
+	CART_STRING = "cart"
 
 	TITLE = "title"
 	CAST  = "cast"
@@ -17,8 +17,8 @@ const (
 	MEMBER_TYPE_ADVANCE = "advance"
 	MEMBER_TYPE_PREMIUM = "premium"
 
-	FOR_CART     = true
-	NOT_FOR_CART = false
+	CART         = true
+	NOT_CART     = false
 	CHECKOUT     = true
 	NOT_CHECKOUT = false
 )

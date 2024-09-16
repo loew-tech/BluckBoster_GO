@@ -8,7 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,77 +34,47 @@ func NewMembersRepo() MemberRepo {
 	}
 }
 
-func (r MemberRepo) GetMemberByUsername(username string) (bool, Member, error) {
-	// @TODO: switch from Query to GetItem
+func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, Member, error) {
+	// @TODO: add logic to check if item was found
 	member := Member{}
-	keyEx := expression.Key(USERNAME).Equal(expression.Value(username))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	name, err := attributevalue.Marshal(username)
 	if err != nil {
-		log.Fatalf("Failed to build query expression")
+		log.Printf("Failed to marshal %s\n", username)
 		return false, member, err
 	}
-	queryInput := &dynamodb.QueryInput{
-		TableName:                 &r.tableName,
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		KeyConditionExpression:    expr.KeyCondition(),
-	}
 
-	result, err := r.client.Query(context.TODO(), queryInput)
+	var attrsToGet []string
+	attrsToGet = nil
+	if cartOnly {
+		attrsToGet = []string{USERNAME, CART_STRING}
+	}
+	input := &dynamodb.GetItemInput{
+		Key:             map[string]types.AttributeValue{USERNAME: name},
+		TableName:       &r.tableName,
+		AttributesToGet: attrsToGet,
+	}
+	result, err := r.client.GetItem(context.TODO(), input)
 	if err != nil {
-		log.Fatalf("Got error calling svc.Query %s\n", err)
+		log.Printf("Err fetching movies from cloud: %s\n", err)
 		return false, member, err
 	}
-	if len(result.Items) == 0 {
-		log.Printf("Could not find member with username: %s\n", username)
-		return false, member, nil
-	}
 
-	err = attributevalue.UnmarshalMap(result.Items[0], &member)
+	err = attributevalue.UnmarshalMap(result.Item, &member)
 	if err != nil {
 		log.Fatalf("Failed to unmarshall data %s\n", err)
-		return true, member, err
+		return false, member, err
 	}
 	return true, member, nil
 }
 
-func (r MemberRepo) GetCartIDs(username string) ([]string, error) {
-	name, err := attributevalue.Marshal(username)
-	if err != nil {
-		log.Printf("Failed to marshal %s\n", username)
-		return nil, err
-	}
-	input := &dynamodb.GetItemInput{
-		Key:       map[string]types.AttributeValue{USERNAME: name},
-		TableName: &r.tableName,
-		// @TODO: what happens if this list is empty? Can I combine this and get user?
-		// @@ODO:	need to refactor GetMember to use getitem instead of query
-		AttributesToGet: []string{CART},
-	}
-
-	response, err := r.client.GetItem(context.TODO(), input)
-	if err != nil {
-		log.Printf("Err fetching movies from cloud: %s\n", err)
-		return nil, err
-	}
-
-	cart := Cart{}
-	err = attributevalue.UnmarshalMap(response.Item, &cart)
-	if err != nil {
-		log.Printf("Err unmarshalling movies from: %s\n", err)
-		return nil, err
-	}
-	return cart.Cart, err
-}
-
 func (r MemberRepo) GetCartMovies(username string) ([]CartMovie, error) {
-	ids, err := r.GetCartIDs(username)
+	_, user, err := r.GetMemberByUsername(username, CART)
 	if err != nil {
 		log.Printf("Err in fetching cart movie ids for %s\n", username)
 		return nil, err
 	}
 
-	_, movies, err := r.MovieRepo.GetMoviesByID(ids, FOR_CART)
+	_, movies, err := r.MovieRepo.GetMoviesByID(user.Cart, CART)
 	if err != nil {
 		log.Printf("Failed to get movies in cart. %s\n", err)
 		return nil, err
@@ -129,9 +98,7 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string, checkingOut 
 	}
 	if checkingOut {
 		updateExpr = fmt.Sprintf("%s ADD checked_out :checked_out", updateExpr)
-		expressionAttrs[":checked_out"] = &types.AttributeValueMemberSS{
-			Value: []string{movieID},
-		}
+		expressionAttrs[":checked_out"] = &types.AttributeValueMemberSS{Value: []string{movieID}}
 	}
 	updateInput := &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(r.tableName),
@@ -143,23 +110,24 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string, checkingOut 
 
 	response, err := r.client.UpdateItem(context.TODO(), updateInput)
 	if err != nil {
-		log.Printf("Failed to add movie %s to %s cart\n %s\n", movieID, username, err)
+		log.Printf("Failed to add/remove movie %s to %s cart\n %s\n", movieID, username, err)
 		return false, response, err
 	}
 	return true, response, nil
 }
 
 func (r MemberRepo) Checkout(username string) ([]string, int, error) {
-	movieIDs, err := r.GetCartIDs(username)
+	// @TODO: have movieIDs passed in, movieIDs need to be cart to be checked out
+	_, user, err := r.GetMemberByUsername(username, CART)
 	if err != nil {
 		log.Printf("err fetching movie ids for cart for %s\n%s\n", username, err)
 		return nil, 0, err
 	}
 
-	rented := 0
+	movieIDs, rented := user.Cart, 0
 	messages := make([]string, 0)
 
-	found, user, err := r.GetMemberByUsername(username)
+	found, user, err := r.GetMemberByUsername(username, CART)
 	if err != nil || !found {
 		return nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
 	}
@@ -167,7 +135,7 @@ func (r MemberRepo) Checkout(username string) ([]string, int, error) {
 		return nil, rented, nil
 	}
 
-	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_FOR_CART)
+	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_CART)
 	if err != nil {
 		return messages, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
 	}
@@ -203,7 +171,6 @@ func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
 
 	modified, _, err := r.ModifyCart(user.Username, movie.ID, DELETE, CHECKOUT)
 	if !modified || err != nil {
-		fmt.Printf("$$\t\tfailed to remove %s from %s cart\n%s\n", movie.Title, user.Username, err)
 		return false, fmt.Errorf("failed to remove %s from %s cart\n%s", movie.Title, user.Username, err)
 	}
 	return true, nil
