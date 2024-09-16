@@ -91,19 +91,23 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 
 func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []CartMovie, error) {
 
-	var keys []map[string]types.AttributeValue
+	keys := make([]map[string]types.AttributeValue, 0)
 	for _, mid := range movieIDs {
 		keys = append(keys, map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: mid}})
 	}
-	expr := ""
-	if forCart {
-		expr = "id, title, inventory"
+	expr := "#i, title, inventory"
+	exprAttrNames := map[string]string{"#i": "id"}
+	if !forCart {
+		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
+		exprAttrNames["#c"] = CAST
+		exprAttrNames["#y"] = YEAR
 	}
 	input := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]types.KeysAndAttributes{
 			r.tableName: {
-				Keys:                 keys,
-				ProjectionExpression: aws.String(expr),
+				Keys:                     keys,
+				ProjectionExpression:     aws.String(expr),
+				ExpressionAttributeNames: exprAttrNames,
 			},
 		},
 	}
@@ -118,19 +122,21 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 	for _, v := range result.Responses {
 		for _, m := range v {
 			if forCart {
+				// @TODO: refactor to remove deep leveling
 				cartMovie := CartMovie{}
 				if err = attributevalue.UnmarshalMap(m, &cartMovie); err != nil {
 					log.Printf("Got error unmarshalling: %s", err)
 					continue
 				}
 				cartMovies = append(cartMovies, cartMovie)
+			} else {
+				movie := Movie{}
+				if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
+					log.Printf("Got error unmarshalling: %s", err)
+					continue
+				}
+				movies = append(movies, movie)
 			}
-			movie := Movie{}
-			if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
-				log.Printf("Got error unmarshalling: %s", err)
-				continue
-			}
-			movies = append(movies, movie)
 		}
 	}
 	return movies, cartMovies, nil

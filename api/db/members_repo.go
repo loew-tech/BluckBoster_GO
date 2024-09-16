@@ -107,13 +107,13 @@ func (r MemberRepo) GetCartMovies(username string) ([]CartMovie, error) {
 
 	_, movies, err := r.MovieRepo.GetMoviesByID(ids, FOR_CART)
 	if err != nil {
-		log.Printf("Failed to get cart. %s\n", err)
+		log.Printf("Failed to get movies in cart. %s\n", err)
 		return nil, err
 	}
 	return movies, nil
 }
 
-func (r MemberRepo) ModifyCart(username, movieID, updateKey string) (
+func (r MemberRepo) ModifyCart(username, movieID, updateKey string, checkingOut bool) (
 	bool, *dynamodb.UpdateItemOutput, error,
 ) {
 	name, err := attributevalue.Marshal(username)
@@ -121,16 +121,24 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string) (
 		return false, nil, fmt.Errorf("failed to marshal data %s", err)
 	}
 
-	updateInput := &dynamodb.UpdateItemInput{
-		TableName: aws.String(r.tableName),
-		Key:       map[string]types.AttributeValue{USERNAME: name},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":cart": &types.AttributeValueMemberSS{
-				Value: []string{movieID},
-			},
+	updateExpr := fmt.Sprintf("%s cart :cart", updateKey)
+	expressionAttrs := map[string]types.AttributeValue{
+		":cart": &types.AttributeValueMemberSS{
+			Value: []string{movieID},
 		},
-		ReturnValues:     types.ReturnValueUpdatedNew,
-		UpdateExpression: aws.String(fmt.Sprintf("%s cart :cart", updateKey)),
+	}
+	if checkingOut {
+		updateExpr = fmt.Sprintf("%s ADD checked_out :checked_out", updateExpr)
+		expressionAttrs[":checked_out"] = &types.AttributeValueMemberSS{
+			Value: []string{movieID},
+		}
+	}
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(r.tableName),
+		Key:                       map[string]types.AttributeValue{USERNAME: name},
+		ExpressionAttributeValues: expressionAttrs,
+		ReturnValues:              types.ReturnValueUpdatedNew,
+		UpdateExpression:          aws.String(updateExpr),
 	}
 
 	response, err := r.client.UpdateItem(context.TODO(), updateInput)
@@ -141,30 +149,34 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string) (
 	return true, response, nil
 }
 
-func (r MemberRepo) Checkout(username string, movieIDs []string) (
-	bool, []string, int, error,
-) {
+func (r MemberRepo) Checkout(username string) ([]string, int, error) {
+	movieIDs, err := r.GetCartIDs(username)
+	if err != nil {
+		log.Printf("err fetching movie ids for cart for %s\n%s\n", username, err)
+		return nil, 0, err
+	}
+
 	rented := 0
 	messages := make([]string, 0)
 
 	found, user, err := r.GetMemberByUsername(username)
 	if err != nil || !found {
-		return false, nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
+		return nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
 	}
-	if MemberTypes[user.Type]+len(movieIDs) < len(user.CheckedOut) {
-		return false, nil, rented, nil
+	if MemberTypes[user.Type]+len(movieIDs) < len(user.Checkedout) {
+		return nil, rented, nil
 	}
 
 	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_FOR_CART)
 	if err != nil {
-		return false, messages, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
+		return messages, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
 	}
 
 	for _, movie := range movies {
 		if movie.Inventory < 0 {
 			messages = append(messages, fmt.Sprintf("%s is out of stock and could not be rented", movie.Title))
 		}
-		contains, _ := utils.SliceContains(user.CheckedOut, movie.ID)
+		contains, _ := utils.SliceContains(user.Checkedout, movie.ID)
 		if contains {
 			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
 			continue
@@ -177,7 +189,7 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) (
 			rented++
 		}
 	}
-	return 0 < rented, messages, rented, nil
+	return messages, rented, nil
 }
 
 func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
@@ -189,32 +201,9 @@ func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
 		return false, fmt.Errorf("failed to checkout %s", movie.Title)
 	}
 
-	name, err := attributevalue.Marshal(user.Username)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal data %s", err)
-	}
-
-	// @TODO: move this as additional ExpressionAttributeValue to UpdateCart -> add boolean flag
-	updateCheckedOutInput := &dynamodb.UpdateItemInput{
-		TableName: aws.String(membersTableName),
-		Key:       map[string]types.AttributeValue{USERNAME: name},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":checked_out": &types.AttributeValueMemberSS{
-				Value: []string{movie.ID},
-			},
-		},
-		ReturnValues:     types.ReturnValueUpdatedNew,
-		UpdateExpression: aws.String("ADD checked_out :checked_out"),
-	}
-
-	_, err = r.client.UpdateItem(context.TODO(), updateCheckedOutInput)
-	if err != nil {
-		log.Printf("Failed for user %s to checkout %s\n%s\n", movie.ID, user.Username, err)
-		return false, err
-	}
-
-	modified, _, err := r.ModifyCart(user.Username, movie.ID, DELETE)
+	modified, _, err := r.ModifyCart(user.Username, movie.ID, DELETE, CHECKOUT)
 	if !modified || err != nil {
+		fmt.Printf("$$\t\tfailed to remove %s from %s cart\n%s\n", movie.Title, user.Username, err)
 		return false, fmt.Errorf("failed to remove %s from %s cart\n%s", movie.Title, user.Username, err)
 	}
 	return true, nil

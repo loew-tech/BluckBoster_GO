@@ -2,10 +2,13 @@ package db
 
 const (
 	ID       = "id"
-	TITLE    = "title"
 	USERNAME = "username"
 	LASTNAME = "last_name"
 	CART     = "cart"
+
+	TITLE = "title"
+	CAST  = "cast"
+	YEAR  = "year"
 
 	ADD    = "ADD"
 	DELETE = "DELETE"
@@ -16,4 +19,6 @@ const (
 
 	FOR_CART     = true
 	NOT_FOR_CART = false
+	CHECKOUT     = true
+	NOT_CHECKOUT = false
 )

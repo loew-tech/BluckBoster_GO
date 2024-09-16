@@ -34,6 +34,7 @@ func main() {
 	router.PUT("/api/v1/members/cart", endpoints.AddToCartEndpoint)
 	router.PUT("/api/v1/members/cart/remove", endpoints.RemoveFromCartEndpoint)
 	router.GET("/api/v1/members/cart/ids/:username", endpoints.GetCartIDsEndpoint)
+	router.POST("/api/v1/members/checkout", endpoints.CheckoutEndpoint)
 
 	router.Run(LOCAL_HOST)
 }
