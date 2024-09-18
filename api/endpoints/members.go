@@ -13,7 +13,6 @@ var memberRepo = db.NewMembersRepo()
 func GetMemberEndpoint(c *gin.Context) {
 	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"), db.NOT_CART)
 	if err != nil {
-		// @TODO sometimes should this be a 502?
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user"})
 	} else {
 		if found {
@@ -80,6 +79,14 @@ type ModifyCartRequest struct {
 }
 
 func AddToCartEndpoint(c *gin.Context) {
+	cartHelper(c, db.ADD, false)
+}
+
+func RemoveFromCartEndpoint(c *gin.Context) {
+	cartHelper(c, db.DELETE, false)
+}
+
+func cartHelper(c *gin.Context, action string, checkingOut bool) {
 	req := ModifyCartRequest{}
 	err := c.BindJSON(&req)
 	if err != nil {
@@ -89,9 +96,14 @@ func AddToCartEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	inserted, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.ADD, db.NOT_CHECKOUT)
+
+	inserted, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, action, checkingOut)
 	if err != nil {
-		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
+		act, direction := "adding", "to"
+		if action == db.DELETE {
+			act, direction = "removing", "from"
+		}
+		msg := fmt.Sprintf("Error %s %s %s %s cart", act, req.MovieID, direction, req.Username)
 		c.IndentedJSON(
 			http.StatusInternalServerError,
 			gin.H{"msg": msg},
@@ -100,7 +112,10 @@ func AddToCartEndpoint(c *gin.Context) {
 	}
 	if !inserted {
 		if response == nil {
-			msg := fmt.Sprintf("Movie %s already in %s cart", req.MovieID, req.Username)
+			msg := fmt.Sprintf("%s is already in %s cart", req.MovieID, req.Username)
+			if action == db.DELETE {
+				msg = fmt.Sprintf("%s was not in %s cart", req.MovieID, req.Username)
+			}
 			c.IndentedJSON(
 				http.StatusNotModified,
 				gin.H{"msg": msg},
@@ -118,49 +133,22 @@ func AddToCartEndpoint(c *gin.Context) {
 	}
 }
 
-func RemoveFromCartEndpoint(c *gin.Context) {
-	req := ModifyCartRequest{}
-	err := c.BindJSON(&req)
-	if err != nil {
-		c.IndentedJSON(
-			http.StatusBadRequest,
-			gin.H{"msg": "Bad Request for ModifyCart"},
-		)
-		return
-	}
-	removed, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.DELETE, db.NOT_CHECKOUT)
-	if err != nil {
-		msg := fmt.Sprintf("Error removing %s from %s cart", req.MovieID, req.Username)
-		c.IndentedJSON(
-			http.StatusInternalServerError,
-			gin.H{"msg": msg},
-		)
-		return
-	}
-	if !removed {
-		if response == nil {
-			msg := fmt.Sprintf("%s was not in %s cart", req.MovieID, req.Username)
-			c.IndentedJSON(
-				http.StatusNotModified,
-				gin.H{"msg": msg},
-			)
-		} else {
-			msg := fmt.Sprintf("Failed to remove movie %s from %s cart", req.MovieID, req.Username)
-			c.IndentedJSON(
-				http.StatusInternalServerError,
-				gin.H{"msg": msg},
-			)
-		}
-
-	} else {
-		c.IndentedJSON(http.StatusAccepted, response)
-	}
+type UpdataeInventoryRequest struct {
+	Username string   `json:"username"`
+	MovieIDs []string `json:"movie_ids"`
 }
 
 func CheckoutEndpoint(c *gin.Context) {
-	fmt.Println("In checkout endpoint")
-	un := UsernameReq{}
-	err := c.BindJSON(&un)
+	checkoutReturnHelper(c, memberRepo.Checkout)
+}
+
+func ReturnEndpoint(c *gin.Context) {
+	checkoutReturnHelper(c, memberRepo.Return)
+}
+
+func checkoutReturnHelper(c *gin.Context, f func(string, []string) ([]string, int, error)) {
+	uir := UpdataeInventoryRequest{}
+	err := c.BindJSON(&uir)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusBadRequest,
@@ -169,18 +157,19 @@ func CheckoutEndpoint(c *gin.Context) {
 		return
 	}
 
-	messages, rented, err := memberRepo.Checkout(un.Username)
-	errMsg := fmt.Sprintf("Failed to checkout %s\n%s", un, err)
+	messages, moviesProcessed, err := f(uir.Username, uir.MovieIDs)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, errMsg)
-	} else if rented == 0 {
-		c.IndentedJSON(http.StatusNotModified, errMsg)
+		msg := fmt.Sprintf("Failed to checkout %s\n", uir.Username)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": msg})
+	} else if moviesProcessed == 0 {
+		msg := fmt.Sprintf("0 movies processed for %s", uir.Username)
+		c.IndentedJSON(http.StatusNotModified, gin.H{"msg": msg})
 	} else {
 		c.IndentedJSON(
 			http.StatusAccepted,
 			gin.H{
-				"messages": messages,
-				"rented":   rented,
+				"messages":         messages,
+				"movies_processed": moviesProcessed,
 			},
 		)
 	}

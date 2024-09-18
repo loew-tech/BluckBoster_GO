@@ -35,7 +35,6 @@ func NewMembersRepo() MemberRepo {
 }
 
 func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, Member, error) {
-	// @TODO: add logic to check if item was found
 	member := Member{}
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
@@ -53,10 +52,15 @@ func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, M
 		TableName:       &r.tableName,
 		AttributesToGet: attrsToGet,
 	}
+
 	result, err := r.client.GetItem(context.TODO(), input)
 	if err != nil {
-		log.Printf("Err fetching movies from cloud: %s\n", err)
+		log.Printf("Err fetching user from cloud: %s\n", err)
 		return false, member, err
+	}
+	if result.Item == nil {
+		log.Printf("Failed to get user %s\n", member.Username)
+		return false, member, nil
 	}
 
 	err = attributevalue.UnmarshalMap(result.Item, &member)
@@ -107,26 +111,22 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string, checkingOut 
 		ReturnValues:              types.ReturnValueUpdatedNew,
 		UpdateExpression:          aws.String(updateExpr),
 	}
+	return r.updateMember(username, updateInput)
+}
 
+func (r MemberRepo) updateMember(username string, updateInput *dynamodb.UpdateItemInput) (
+	bool, *dynamodb.UpdateItemOutput, error,
+) {
 	response, err := r.client.UpdateItem(context.TODO(), updateInput)
 	if err != nil {
-		log.Printf("Failed to add/remove movie %s to %s cart\n %s\n", movieID, username, err)
+		log.Printf("Failed to update %s\n%s\n", username, err)
 		return false, response, err
 	}
 	return true, response, nil
 }
 
-func (r MemberRepo) Checkout(username string) ([]string, int, error) {
-	// @TODO: have movieIDs passed in, movieIDs need to be cart to be checked out
-	_, user, err := r.GetMemberByUsername(username, CART)
-	if err != nil {
-		log.Printf("err fetching movie ids for cart for %s\n%s\n", username, err)
-		return nil, 0, err
-	}
-
-	movieIDs, rented := user.Cart, 0
-	messages := make([]string, 0)
-
+func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int, error) {
+	rented, messages := 0, make([]string, 0)
 	found, user, err := r.GetMemberByUsername(username, CART)
 	if err != nil || !found {
 		return nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
@@ -161,7 +161,7 @@ func (r MemberRepo) Checkout(username string) ([]string, int, error) {
 }
 
 func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
-	success, err := r.MovieRepo.RentMovie(movie)
+	success, err := r.MovieRepo.Rent(movie)
 	if err != nil {
 		return false, fmt.Errorf("err checking %s\n%s", movie.Title, err)
 	}
@@ -171,7 +171,58 @@ func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
 
 	modified, _, err := r.ModifyCart(user.Username, movie.ID, DELETE, CHECKOUT)
 	if !modified || err != nil {
+		r.MovieRepo.Return(movie)
 		return false, fmt.Errorf("failed to remove %s from %s cart\n%s", movie.Title, user.Username, err)
 	}
 	return true, nil
+}
+
+func (r MemberRepo) Return(username string, movieIDs []string) ([]string, int, error) {
+	name, err := attributevalue.Marshal(username)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_CART)
+	if err != nil {
+		log.Print("Err returning movies. Failed to fetch movies from cloud")
+		return nil, 0, err
+	}
+
+	messages, returned := make([]string, 0), 0
+	for _, movie := range movies {
+		updateExpr := "DELETE checked_out :checked_out ADD rented :rented"
+		expressionAttrs := map[string]types.AttributeValue{
+			":checked_out": &types.AttributeValueMemberSS{
+				Value: []string{movie.ID},
+			},
+			":rented": &types.AttributeValueMemberSS{
+				Value: []string{movie.ID},
+			},
+		}
+		updateInput := &dynamodb.UpdateItemInput{
+			TableName:                 aws.String(r.tableName),
+			Key:                       map[string]types.AttributeValue{USERNAME: name},
+			ExpressionAttributeValues: expressionAttrs,
+			ReturnValues:              types.ReturnValueUpdatedNew,
+			UpdateExpression:          aws.String(updateExpr),
+		}
+		ok, response, err := r.updateMember(username, updateInput)
+		if err != nil || !ok {
+			msg := fmt.Sprintf("Failed to return movie %s\nResponse: %v\nErr: %s\n", movie.ID, response, err)
+			log.Print(msg)
+			messages = append(messages, msg)
+			continue
+		}
+
+		ok, err = r.MovieRepo.Return(movie)
+		if err != nil || !ok {
+			msg := fmt.Sprintf("Failed to update movie table %s\nResponse: %v\nErr: %s\n", movie.ID, response, err)
+			log.Print(msg)
+			messages = append(messages, msg)
+			continue
+		}
+		returned++
+	}
+	return messages, returned, nil
 }

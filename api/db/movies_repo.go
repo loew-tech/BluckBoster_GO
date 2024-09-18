@@ -99,8 +99,7 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 	exprAttrNames := map[string]string{"#i": "id"}
 	if !forCart {
 		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
-		exprAttrNames["#c"] = CAST
-		exprAttrNames["#y"] = YEAR
+		exprAttrNames["#c"], exprAttrNames["#y"] = CAST, YEAR
 	}
 	input := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]types.KeysAndAttributes{
@@ -142,7 +141,7 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 	return movies, cartMovies, nil
 }
 
-func (r MovieRepo) RentMovie(movie Movie) (bool, error) {
+func (r MovieRepo) Rent(movie Movie) (bool, error) {
 
 	mid, err := attributevalue.Marshal(movie.ID)
 	if err != nil {
@@ -163,10 +162,36 @@ func (r MovieRepo) RentMovie(movie Movie) (bool, error) {
 		ReturnValues:     types.ReturnValueUpdatedNew,
 		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
 	}
+	return r.updateInventory(movie, updateInventoryAndRentedInput)
+}
 
-	_, err = r.client.UpdateItem(context.TODO(), updateInventoryAndRentedInput)
+func (r MovieRepo) Return(movie Movie) (bool, error) {
+	mid, err := attributevalue.Marshal(movie.ID)
 	if err != nil {
-		log.Printf("Failed to checkout %s\n%s\n", movie.ID, err)
+		return false, fmt.Errorf("failed to marshal data %s", err)
+	}
+
+	updateInventoryAndRentedInput := &dynamodb.UpdateItemInput{
+		TableName: aws.String(movieTableName),
+		Key:       map[string]types.AttributeValue{ID: mid},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":inventory": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Inventory + 1),
+			},
+			":rented": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Rented - 1),
+			},
+		},
+		ReturnValues:     types.ReturnValueUpdatedNew,
+		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
+	}
+	return r.updateInventory(movie, updateInventoryAndRentedInput)
+}
+
+func (r MovieRepo) updateInventory(movie Movie, input *dynamodb.UpdateItemInput) (bool, error) {
+	response, err := r.client.UpdateItem(context.TODO(), input)
+	if err != nil {
+		log.Printf("Failed to update movie item %s\nResp %v\nErr: %s\n", movie.ID, response, err)
 		return false, err
 	}
 	return true, nil
