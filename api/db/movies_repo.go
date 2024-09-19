@@ -2,11 +2,15 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strconv"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 const movieTableName = "BluckBoster_movies"
@@ -48,7 +52,6 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 		}
 		movies = append(movies, movie)
 	}
-
 	return movies, nil
 }
 
@@ -86,45 +89,110 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 // 	return movie, nil
 // }
 
-// func (r MovieRepo) GetMoviesByID(movieIDs []string) ([]MovieIdAndTitle, []error, error) {
-// 	var keys []map[string]*dynamodb.AttributeValue
-// 	for _, mid := range movieIDs {
-// 		m := map[string]*dynamodb.AttributeValue{
-// 			ID: {
-// 				S: aws.String(mid),
-// 			},
-// 		}
-// 		keys = append(keys, m)
-// 	}
+func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []CartMovie, error) {
 
-// 	input := &dynamodb.BatchGetItemInput{
-// 		RequestItems: map[string]*dynamodb.KeysAndAttributes{
-// 			r.tableName: {
-// 				Keys:                 keys,
-// 				ProjectionExpression: aws.String("id, title"),
-// 			},
-// 		},
-// 	}
+	keys := make([]map[string]types.AttributeValue, 0)
+	for _, mid := range movieIDs {
+		keys = append(keys, map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: mid}})
+	}
+	expr := "#i, title, inventory"
+	exprAttrNames := map[string]string{"#i": "id"}
+	if !forCart {
+		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
+		exprAttrNames["#c"], exprAttrNames["#y"] = CAST, YEAR
+	}
+	input := &dynamodb.BatchGetItemInput{
+		RequestItems: map[string]types.KeysAndAttributes{
+			r.tableName: {
+				Keys:                     keys,
+				ProjectionExpression:     aws.String(expr),
+				ExpressionAttributeNames: exprAttrNames,
+			},
+		},
+	}
 
-// 	result, err := r.svc.BatchGetItem(input)
-// 	if err != nil {
-// 		log.Printf("Err fetching movies from cloud: %s\n", err)
-// 		return nil, nil, err
-// 	}
+	result, err := r.client.BatchGetItem(context.TODO(), input)
+	if err != nil {
+		log.Printf("Err fetching movies from cloud: %s\n", err)
+		return nil, nil, err
+	}
 
-// 	movies, errors := make([]MovieIdAndTitle, 0), make([]error, 0)
-// 	for _, v := range result.Responses {
-// 		for _, m := range v {
-// 			movie := MovieIdAndTitle{}
-// 			err = dynamodbattribute.UnmarshalMap(m, &movie)
+	movies, cartMovies := make([]Movie, 0), make([]CartMovie, 0)
+	for _, v := range result.Responses {
+		for _, m := range v {
+			if forCart {
+				// @TODO: refactor to remove deep leveling
+				cartMovie := CartMovie{}
+				if err = attributevalue.UnmarshalMap(m, &cartMovie); err != nil {
+					log.Printf("Got error unmarshalling: %s", err)
+					continue
+				}
+				cartMovies = append(cartMovies, cartMovie)
+			} else {
+				movie := Movie{}
+				if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
+					log.Printf("Got error unmarshalling: %s", err)
+					continue
+				}
+				movies = append(movies, movie)
+			}
+		}
+	}
+	return movies, cartMovies, nil
+}
 
-// 			if err != nil {
-// 				log.Printf("Got error unmarshalling: %s", err)
-// 				errors = append(errors, err)
-// 			}
-// 			movies = append(movies, movie)
+func (r MovieRepo) Rent(movie Movie) (bool, error) {
 
-// 		}
-// 	}
-// 	return movies, errors, nil
-// }
+	mid, err := attributevalue.Marshal(movie.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal data %s", err)
+	}
+
+	updateInventoryAndRentedInput := &dynamodb.UpdateItemInput{
+		TableName: aws.String(movieTableName),
+		Key:       map[string]types.AttributeValue{ID: mid},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":inventory": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Inventory - 1),
+			},
+			":rented": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Rented + 1),
+			},
+		},
+		ReturnValues:     types.ReturnValueUpdatedNew,
+		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
+	}
+	return r.updateInventory(movie, updateInventoryAndRentedInput)
+}
+
+func (r MovieRepo) Return(movie Movie) (bool, error) {
+	mid, err := attributevalue.Marshal(movie.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal data %s", err)
+	}
+
+	updateInventoryAndRentedInput := &dynamodb.UpdateItemInput{
+		TableName: aws.String(movieTableName),
+		Key:       map[string]types.AttributeValue{ID: mid},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":inventory": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Inventory + 1),
+			},
+			":rented": &types.AttributeValueMemberN{
+				Value: strconv.Itoa(movie.Rented - 1),
+			},
+		},
+		ReturnValues:     types.ReturnValueUpdatedNew,
+		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
+	}
+	return r.updateInventory(movie, updateInventoryAndRentedInput)
+}
+
+func (r MovieRepo) updateInventory(movie Movie, input *dynamodb.UpdateItemInput) (bool, error) {
+	response, err := r.client.UpdateItem(context.TODO(), input)
+	if err != nil {
+		log.Printf("Failed to update movie item %s\nResp %v\nErr: %s\n", movie.ID, response, err)
+		return false, err
+	}
+	return true, nil
+}

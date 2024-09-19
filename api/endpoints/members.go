@@ -11,9 +11,9 @@ import (
 var memberRepo = db.NewMembersRepo()
 
 func GetMemberEndpoint(c *gin.Context) {
-	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"))
+	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"), db.NOT_CART)
 	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user"})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user"})
 	} else {
 		if found {
 			c.IndentedJSON(http.StatusOK, member)
@@ -23,13 +23,13 @@ func GetMemberEndpoint(c *gin.Context) {
 	}
 }
 
-type LoginRequest struct {
+type UsernameReq struct {
 	Username string `json:"username"`
 }
 
 func MemberLoginEndpoint(c *gin.Context) {
-	lr := LoginRequest{}
-	err := c.BindJSON(&lr)
+	un := UsernameReq{}
+	err := c.BindJSON(&un)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusBadRequest,
@@ -37,32 +37,38 @@ func MemberLoginEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	found, member, err := memberRepo.GetMemberByUsername(lr.Username)
+	found, member, err := memberRepo.GetMemberByUsername(un.Username, db.NOT_CART)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusNotFound,
-			gin.H{"msg": "Failed to retrieve user"},
+			gin.H{"msg": "Error retrieving user"},
 		)
+		return
+	}
+	if found {
+		c.IndentedJSON(http.StatusOK, member)
 	} else {
-		if found {
-			c.IndentedJSON(http.StatusOK, member)
-		} else {
-			c.IndentedJSON(
-				http.StatusNotFound,
-				gin.H{"msg": "Failed to find user"},
-			)
-		}
+		c.IndentedJSON(
+			http.StatusNotFound,
+			gin.H{"msg": "Failed to find user"},
+		)
 	}
 }
 
 func GetCartIDsEndpoint(c *gin.Context) {
-	movies, err := memberRepo.GetCartIDs(c.Param("username"))
+	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), db.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
-		for m := range movies {
-			fmt.Println(m)
-		}
+		c.IndentedJSON(http.StatusAccepted, user.Cart)
+	}
+}
+
+func GetCartMoviesEndpoint(c *gin.Context) {
+	movies, err := memberRepo.GetCartMovies(c.Param("username"))
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart movies"})
+	} else {
 		c.IndentedJSON(http.StatusAccepted, movies)
 	}
 }
@@ -73,29 +79,45 @@ type ModifyCartRequest struct {
 }
 
 func AddToCartEndpoint(c *gin.Context) {
+	cartHelper(c, db.ADD, false)
+}
+
+func RemoveFromCartEndpoint(c *gin.Context) {
+	cartHelper(c, db.DELETE, false)
+}
+
+func cartHelper(c *gin.Context, action string, checkingOut bool) {
 	req := ModifyCartRequest{}
 	err := c.BindJSON(&req)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusBadRequest,
-			gin.H{"msg": "Bad Request for AddToCart"},
+			gin.H{"msg": "Bad Request for ModifyCart"},
 		)
 		return
 	}
-	inserted, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.ADD)
+
+	inserted, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, action, checkingOut)
 	if err != nil {
-		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
+		act, direction := "adding", "to"
+		if action == db.DELETE {
+			act, direction = "removing", "from"
+		}
+		msg := fmt.Sprintf("Error %s %s %s %s cart", act, req.MovieID, direction, req.Username)
 		c.IndentedJSON(
-			http.StatusNotFound,
+			http.StatusInternalServerError,
 			gin.H{"msg": msg},
 		)
 		return
 	}
 	if !inserted {
 		if response == nil {
-			msg := fmt.Sprintf("Movie %s already in %s cart", req.MovieID, req.Username)
+			msg := fmt.Sprintf("%s is already in %s cart", req.MovieID, req.Username)
+			if action == db.DELETE {
+				msg = fmt.Sprintf("%s was not in %s cart", req.MovieID, req.Username)
+			}
 			c.IndentedJSON(
-				http.StatusNotFound,
+				http.StatusNotModified,
 				gin.H{"msg": msg},
 			)
 		} else {
@@ -111,41 +133,46 @@ func AddToCartEndpoint(c *gin.Context) {
 	}
 }
 
-func RemoveFromCartEndpoint(c *gin.Context) {
-	req := ModifyCartRequest{}
-	err := c.BindJSON(&req)
+type UpdataeInventoryRequest struct {
+	Username string   `json:"username"`
+	MovieIDs []string `json:"movie_ids"`
+}
+
+func CheckoutEndpoint(c *gin.Context) {
+	checkoutReturnHelper(c, memberRepo.Checkout)
+}
+
+func ReturnEndpoint(c *gin.Context) {
+	checkoutReturnHelper(c, memberRepo.Return)
+}
+
+func checkoutReturnHelper(c *gin.Context, f func(string, []string) ([]string, int, error)) {
+	uir := UpdataeInventoryRequest{}
+	err := c.BindJSON(&uir)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusBadRequest,
-			gin.H{"msg": "Bad Request for AddToCart"},
+			gin.H{"msg": "Failed to unmarshall data into request"},
 		)
 		return
 	}
-	removed, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, db.DELETE)
-	if err != nil {
-		msg := fmt.Sprintf("Error adding movie %s to %s cart", req.MovieID, req.Username)
-		c.IndentedJSON(
-			http.StatusNotFound,
-			gin.H{"msg": msg},
-		)
-		return
-	}
-	if !removed {
-		if response == nil {
-			msg := fmt.Sprintf("Movie %s was not %s cart", req.MovieID, req.Username)
-			c.IndentedJSON(
-				http.StatusNotFound,
-				gin.H{"msg": msg},
-			)
-		} else {
-			msg := fmt.Sprintf("Failed to remove movie %s from %s cart", req.MovieID, req.Username)
-			c.IndentedJSON(
-				http.StatusNotFound,
-				gin.H{"msg": msg},
-			)
-		}
 
-	} else {
-		c.IndentedJSON(http.StatusAccepted, response)
+	messages, moviesProcessed, err := f(uir.Username, uir.MovieIDs)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to checkout %s\n", uir.Username)
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": msg})
+		return
 	}
+
+	status := http.StatusAccepted
+	if moviesProcessed == 0 {
+		status = http.StatusNotModified
+	}
+	c.IndentedJSON(
+		status,
+		gin.H{
+			"messages":         messages,
+			"movies_processed": moviesProcessed,
+		},
+	)
 }

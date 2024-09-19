@@ -8,7 +8,7 @@ var TestMovies = []Movie{
 		"James Cromwell",
 	},
 		Director:  "Curtis Hanson",
-		Id:        "l.a._confidential_1997",
+		ID:        "l.a._confidential_1997",
 		Inventory: 5,
 		Rented:    0,
 		Rating:    "99%",
@@ -24,7 +24,7 @@ var TestMovies = []Movie{
 		"Claude Rains",
 	},
 		Director:  "Michael Curtiz",
-		Id:        "casablanca_1942",
+		ID:        "casablanca_1942",
 		Inventory: 4,
 		Rented:    0,
 		Rating:    "99%",
@@ -45,4 +45,5 @@ var TestMember = Member{
 	LastName:  "Captain",
 	Username:  "sea_captain",
 	Type:      "advanced",
+	Cart:      TestMovieIDs,
 }

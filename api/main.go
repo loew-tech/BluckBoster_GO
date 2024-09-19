@@ -30,9 +30,12 @@ func main() {
 	router.GET("/api/v1/movies", endpoints.GetMoviesEndpoint)
 	router.GET("/api/v1/members/:username", endpoints.GetMemberEndpoint)
 	router.POST("/api/v1/members/login", endpoints.MemberLoginEndpoint)
+	router.GET("/api/v1/members/:username/cart", endpoints.GetCartMoviesEndpoint)
 	router.PUT("/api/v1/members/cart", endpoints.AddToCartEndpoint)
 	router.PUT("/api/v1/members/cart/remove", endpoints.RemoveFromCartEndpoint)
-	router.GET("/api/v1/members/cart/ids/:username", endpoints.GetCartIDsEndpoint)
+	router.GET("/api/v1/members/:username/cart/ids", endpoints.GetCartIDsEndpoint)
+	router.POST("/api/v1/members/checkout", endpoints.CheckoutEndpoint)
+	router.POST("/api/v1/members/return", endpoints.ReturnEndpoint)
 
 	router.Run(LOCAL_HOST)
 }
