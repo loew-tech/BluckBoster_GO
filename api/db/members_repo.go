@@ -45,7 +45,7 @@ func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, M
 	var attrsToGet []string
 	attrsToGet = nil
 	if cartOnly {
-		attrsToGet = []string{USERNAME, CART_STRING}
+		attrsToGet = []string{USERNAME, CART_STRING, CHECKED_OUT, TYPE}
 	}
 	input := &dynamodb.GetItemInput{
 		Key:             map[string]types.AttributeValue{USERNAME: name},
@@ -131,27 +131,35 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 	if err != nil || !found {
 		return nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
 	}
-	if MemberTypes[user.Type]+len(movieIDs) < len(user.Checkedout) {
+
+	if len(movieIDs)+len(user.Checkedout) > MemberTypes[user.Type] {
 		return nil, rented, nil
 	}
 
 	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_CART)
 	if err != nil {
-		return messages, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
+		return nil, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
 	}
 
 	for _, movie := range movies {
 		if movie.Inventory < 0 {
 			messages = append(messages, fmt.Sprintf("%s is out of stock and could not be rented", movie.Title))
+			continue
 		}
 		contains, _ := utils.SliceContains(user.Checkedout, movie.ID)
 		if contains {
 			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
 			continue
 		}
+		contains, _ = utils.SliceContains(user.Cart, movie.ID)
+		if !contains {
+			messages = append(messages, fmt.Sprintf("%s is not in %s cart", movie.Title, user.Username))
+			continue
+		}
 		success, err := r.checkoutMovie(user, movie)
 		if err != nil {
 			messages = append(messages, fmt.Sprintf("Failed to rent %s", movie.ID))
+			continue
 		}
 		if success {
 			rented++

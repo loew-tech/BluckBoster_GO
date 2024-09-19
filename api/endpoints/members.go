@@ -161,16 +161,18 @@ func checkoutReturnHelper(c *gin.Context, f func(string, []string) ([]string, in
 	if err != nil {
 		msg := fmt.Sprintf("Failed to checkout %s\n", uir.Username)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": msg})
-	} else if moviesProcessed == 0 {
-		msg := fmt.Sprintf("0 movies processed for %s", uir.Username)
-		c.IndentedJSON(http.StatusNotModified, gin.H{"msg": msg})
-	} else {
-		c.IndentedJSON(
-			http.StatusAccepted,
-			gin.H{
-				"messages":         messages,
-				"movies_processed": moviesProcessed,
-			},
-		)
+		return
 	}
+
+	status := http.StatusAccepted
+	if moviesProcessed == 0 {
+		status = http.StatusNotModified
+	}
+	c.IndentedJSON(
+		status,
+		gin.H{
+			"messages":         messages,
+			"movies_processed": moviesProcessed,
+		},
+	)
 }

@@ -5,6 +5,8 @@ const (
 	USERNAME    = "username"
 	LASTNAME    = "last_name"
 	CART_STRING = "cart"
+	CHECKED_OUT = "checked_out"
+	TYPE        = "member_type"
 
 	TITLE = "title"
 	CAST  = "cast"
