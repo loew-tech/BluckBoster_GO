@@ -16,7 +16,7 @@ const (
 	DELETE = "DELETE"
 
 	MEMBER_TYPE_BASIC   = "basic"
-	MEMBER_TYPE_ADVANCE = "advance"
+	MEMBER_TYPE_ADVANCE = "advanced"
 	MEMBER_TYPE_PREMIUM = "premium"
 
 	CART         = true

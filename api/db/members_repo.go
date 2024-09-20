@@ -131,8 +131,7 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 	if err != nil || !found {
 		return nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
 	}
-
-	if len(movieIDs)+len(user.Checkedout) > MemberTypes[user.Type] {
+	if MemberTypes[user.Type] < len(movieIDs)+len(user.Checkedout) {
 		return nil, rented, nil
 	}
 
@@ -146,6 +145,7 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 			messages = append(messages, fmt.Sprintf("%s is out of stock and could not be rented", movie.Title))
 			continue
 		}
+
 		contains, _ := utils.SliceContains(user.Checkedout, movie.ID)
 		if contains {
 			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
@@ -156,6 +156,7 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 			messages = append(messages, fmt.Sprintf("%s is not in %s cart", movie.Title, user.Username))
 			continue
 		}
+
 		success, err := r.checkoutMovie(user, movie)
 		if err != nil {
 			messages = append(messages, fmt.Sprintf("Failed to rent %s", movie.ID))
