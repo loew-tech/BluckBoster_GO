@@ -60,7 +60,7 @@ func GetCartIDsEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
-		c.IndentedJSON(http.StatusAccepted, user.Cart)
+		c.IndentedJSON(http.StatusOK, user.Cart)
 	}
 }
 
@@ -69,7 +69,7 @@ func GetCartMoviesEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart movies"})
 	} else {
-		c.IndentedJSON(http.StatusAccepted, movies)
+		c.IndentedJSON(http.StatusOK, movies)
 	}
 }
 
@@ -175,4 +175,17 @@ func checkoutReturnHelper(c *gin.Context, f func(string, []string) ([]string, in
 			"movies_processed": moviesProcessed,
 		},
 	)
+}
+
+func GetCheckedOutMovies(c *gin.Context) {
+	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), db.CART)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+	}
+	_, movies, err := memberRepo.MovieRepo.GetMoviesByID(user.Checkedout, db.CART)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadGateway, gin.H{"msg": "Failed to retrieve movies from cloud"})
+	} else {
+		c.IndentedJSON(http.StatusOK, movies)
+	}
 }
