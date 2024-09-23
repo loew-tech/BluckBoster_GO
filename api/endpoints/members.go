@@ -176,3 +176,16 @@ func checkoutReturnHelper(c *gin.Context, f func(string, []string) ([]string, in
 		},
 	)
 }
+
+func GetCheckedOutMovies(c *gin.Context) {
+	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), db.CART)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+	}
+	_, movies, err := memberRepo.MovieRepo.GetMoviesByID(user.Checkedout, db.CART)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadGateway, gin.H{"msg": "Failed to retrieve movies from cloud"})
+	} else {
+		c.IndentedJSON(http.StatusOK, movies)
+	}
+}
