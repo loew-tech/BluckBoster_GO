@@ -60,7 +60,7 @@ func GetCartIDsEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
-		c.IndentedJSON(http.StatusAccepted, user.Cart)
+		c.IndentedJSON(http.StatusOK, user.Cart)
 	}
 }
 
@@ -69,7 +69,7 @@ func GetCartMoviesEndpoint(c *gin.Context) {
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart movies"})
 	} else {
-		c.IndentedJSON(http.StatusAccepted, movies)
+		c.IndentedJSON(http.StatusOK, movies)
 	}
 }
 

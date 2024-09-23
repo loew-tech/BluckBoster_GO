@@ -78,10 +78,13 @@ func (r MemberRepo) GetCartMovies(username string) ([]CartMovie, error) {
 		return nil, err
 	}
 
-	_, movies, err := r.MovieRepo.GetMoviesByID(user.Cart, CART)
-	if err != nil {
-		log.Printf("Failed to get movies in cart. %s\n", err)
-		return nil, err
+	movies := make([]CartMovie, 0)
+	if 0 < len(user.Cart) {
+		_, movies, err = r.MovieRepo.GetMoviesByID(user.Cart, CART)
+		if err != nil {
+			log.Printf("Failed to get movies in cart. %s\n", err)
+			return nil, err
+		}
 	}
 	return movies, nil
 }
