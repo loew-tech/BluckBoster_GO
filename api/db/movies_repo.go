@@ -90,7 +90,9 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 // }
 
 func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []CartMovie, error) {
-
+	if len(movieIDs) == 0 {
+		return make([]Movie, 0), make([]CartMovie, 0), nil
+	}
 	keys := make([]map[string]types.AttributeValue, 0)
 	for _, mid := range movieIDs {
 		keys = append(keys, map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: mid}})
@@ -142,50 +144,41 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 }
 
 func (r MovieRepo) Rent(movie Movie) (bool, error) {
-
-	mid, err := attributevalue.Marshal(movie.ID)
+	input, err := getUpdateInventoryInput(movie, -1)
 	if err != nil {
-		return false, fmt.Errorf("failed to marshal data %s", err)
+		return false, fmt.Errorf("failed to generate input for update call %s", err)
 	}
-
-	updateInventoryAndRentedInput := &dynamodb.UpdateItemInput{
-		TableName: aws.String(movieTableName),
-		Key:       map[string]types.AttributeValue{ID: mid},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":inventory": &types.AttributeValueMemberN{
-				Value: strconv.Itoa(movie.Inventory - 1),
-			},
-			":rented": &types.AttributeValueMemberN{
-				Value: strconv.Itoa(movie.Rented + 1),
-			},
-		},
-		ReturnValues:     types.ReturnValueUpdatedNew,
-		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
-	}
-	return r.updateInventory(movie, updateInventoryAndRentedInput)
+	return r.updateInventory(movie, input)
 }
 
 func (r MovieRepo) Return(movie Movie) (bool, error) {
+	input, err := getUpdateInventoryInput(movie, 1)
+	if err != nil {
+		return false, fmt.Errorf("failed to generate input for update call %s", err)
+	}
+	return r.updateInventory(movie, input)
+}
+
+func getUpdateInventoryInput(movie Movie, inventoryInc int) (*dynamodb.UpdateItemInput, error) {
 	mid, err := attributevalue.Marshal(movie.ID)
 	if err != nil {
-		return false, fmt.Errorf("failed to marshal data %s", err)
+		return nil, fmt.Errorf("failed to marshal data %s", err)
 	}
 
-	updateInventoryAndRentedInput := &dynamodb.UpdateItemInput{
+	return &dynamodb.UpdateItemInput{
 		TableName: aws.String(movieTableName),
 		Key:       map[string]types.AttributeValue{ID: mid},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":inventory": &types.AttributeValueMemberN{
-				Value: strconv.Itoa(movie.Inventory + 1),
+				Value: strconv.Itoa(movie.Inventory + inventoryInc),
 			},
 			":rented": &types.AttributeValueMemberN{
-				Value: strconv.Itoa(movie.Rented - 1),
+				Value: strconv.Itoa(movie.Rented - inventoryInc),
 			},
 		},
 		ReturnValues:     types.ReturnValueUpdatedNew,
 		UpdateExpression: aws.String("set inventory = :inventory, rented = :rented"),
-	}
-	return r.updateInventory(movie, updateInventoryAndRentedInput)
+	}, nil
 }
 
 func (r MovieRepo) updateInventory(movie Movie, input *dynamodb.UpdateItemInput) (bool, error) {
