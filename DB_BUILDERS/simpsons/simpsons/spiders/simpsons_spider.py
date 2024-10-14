@@ -24,7 +24,7 @@ class SimpsonSpider(scrapy.Spider):
 
             item = Item()
             item['first_name'] = first_name
-            item['last_name'] = ' '.join(last_name) if last_name else ' '
+            item['last_name'] = ' '.join(last_name)
             item['username'] = f'{first_name}_{"_".join(last_name)}'.lower() \
                 if last_name else first_name
             item['member_type'] = choice(SimpsonSpider._member_types)
