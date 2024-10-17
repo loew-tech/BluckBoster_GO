@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var movieRepo = db.NewMovieRepo()
+var movieRepo = db.NewMovieRepo(GetDynamoClient())
 
 func GetMoviesEndpoint(c *gin.Context) {
 	movies, err := movieRepo.GetAllMovies()

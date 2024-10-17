@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -20,14 +19,9 @@ type MovieRepo struct {
 	tableName string
 }
 
-func NewMovieRepo() MovieRepo {
-	config, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Fatalln("FAILED TO INSTANTIATE MovieRepo")
-	}
-
+func NewMovieRepo(client *dynamodb.Client) MovieRepo {
 	return MovieRepo{
-		client:    *dynamodb.NewFromConfig(config),
+		client:    *client,
 		tableName: movieTableName,
 	}
 }
