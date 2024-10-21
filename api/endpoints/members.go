@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var memberRepo = db.NewMembersRepo()
+var memberRepo = db.NewMembersRepo(GetDynamoClient())
 
 func GetMemberEndpoint(c *gin.Context) {
 	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"), db.NOT_CART)

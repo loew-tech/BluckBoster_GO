@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -20,14 +19,9 @@ type MovieRepo struct {
 	tableName string
 }
 
-func NewMovieRepo() MovieRepo {
-	config, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Fatalln("FAILED TO INSTANTIATE MovieRepo")
-	}
-
+func NewMovieRepo(client *dynamodb.Client) MovieRepo {
 	return MovieRepo{
-		client:    *dynamodb.NewFromConfig(config),
+		client:    *client,
 		tableName: movieTableName,
 	}
 }
@@ -55,39 +49,38 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 	return movies, nil
 }
 
-// @TODO: update to sdk v2 when needed
-// func (r MovieRepo) QueryMovieByID(id string) (Movie, error) {
-// 	queryInput := &dynamodb.QueryInput{
-// 		TableName: aws.String(r.tableName),
-// 		KeyConditions: map[string]*dynamodb.Condition{
-// 			ID: {
-// 				ComparisonOperator: aws.String("EQ"),
-// 				AttributeValueList: []*dynamodb.AttributeValue{
-// 					{
-// 						S: aws.String(id),
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
+func (r MovieRepo) GetMovieByID(movieID string, forCart bool) (Movie, CartMovie, error) {
+	expr := "#i, title, inventory"
+	exprAttrNames := map[string]string{"#i": "id"}
+	if !forCart {
+		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
+		exprAttrNames["#c"], exprAttrNames["#y"] = CAST, YEAR
+	}
+	input := &dynamodb.GetItemInput{
+		Key:                      map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: movieID}},
+		TableName:                aws.String(r.tableName),
+		ProjectionExpression:     &expr,
+		ExpressionAttributeNames: exprAttrNames,
+	}
 
-// 	result, err := r.svc.Query(queryInput)
-// 	if err != nil {
-// 		log.Printf("Query API call failed: %s\n", err)
-// 		return Movie{}, err
-// 	}
-// 	if len(result.Items) == 0 {
-// 		log.Printf("Could not find movie with id: %s\n", id)
-// 		return Movie{}, nil
-// 	}
+	result, err := r.client.GetItem(context.TODO(), input)
+	if err != nil {
+		log.Printf("Err fetching movies from cloud: %s\n", err)
+		return Movie{}, CartMovie{}, err
+	}
 
-// 	movie := Movie{}
-// 	err = dynamodbattribute.UnmarshalMap(result.Items[0], &movie)
-// 	if err != nil {
-// 		log.Fatalf("Failed to unmarshall data %s\n", err)
-// 	}
-// 	return movie, nil
-// }
+	movie, cartMovie := Movie{}, CartMovie{}
+	if !forCart {
+		err = attributevalue.UnmarshalMap(result.Item, &movie)
+	} else {
+		err = attributevalue.UnmarshalMap(result.Item, &cartMovie)
+	}
+
+	if err != nil {
+		log.Printf("Failed to unmarhal movie")
+	}
+	return movie, cartMovie, err
+}
 
 func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []CartMovie, error) {
 	if len(movieIDs) == 0 {

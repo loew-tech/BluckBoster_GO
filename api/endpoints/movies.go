@@ -2,12 +2,13 @@ package endpoints
 
 import (
 	"blockbuster/api/db"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-var movieRepo = db.NewMovieRepo()
+var movieRepo = db.NewMovieRepo(GetDynamoClient())
 
 func GetMoviesEndpoint(c *gin.Context) {
 	movies, err := movieRepo.GetAllMovies()
@@ -15,5 +16,15 @@ func GetMoviesEndpoint(c *gin.Context) {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve movies"})
 	} else {
 		c.IndentedJSON(http.StatusOK, movies)
+	}
+}
+
+func GetMovieEndpoint(c *gin.Context) {
+	movieID := c.Param("movieID")
+	movie, _, err := movieRepo.GetMovieByID(movieID, false)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to retrieve movieID %s", movieID)})
+	} else {
+		c.IndentedJSON(http.StatusOK, movie)
 	}
 }

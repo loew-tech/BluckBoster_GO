@@ -1,12 +1,10 @@
 package db
 
 import (
-	"blockbuster/api/utils"
 	"context"
 	"fmt"
 	"log"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -21,16 +19,11 @@ type MemberRepo struct {
 	MovieRepo MovieRepo
 }
 
-func NewMembersRepo() MemberRepo {
-	config, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Fatalln("FAILED TO INSTANTIATE MemberRepo", err)
-	}
-
+func NewMembersRepo(client *dynamodb.Client) MemberRepo {
 	return MemberRepo{
-		client:    *dynamodb.NewFromConfig(config),
+		client:    *client,
 		tableName: membersTableName,
-		MovieRepo: NewMovieRepo(),
+		MovieRepo: NewMovieRepo(client),
 	}
 }
 
@@ -149,12 +142,12 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 			continue
 		}
 
-		contains, _ := utils.SliceContains(user.Checkedout, movie.ID)
+		contains, _ := SliceContains(user.Checkedout, movie.ID)
 		if contains {
 			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
 			continue
 		}
-		contains, _ = utils.SliceContains(user.Cart, movie.ID)
+		contains, _ = SliceContains(user.Cart, movie.ID)
 		if !contains {
 			messages = append(messages, fmt.Sprintf("%s is not in %s cart", movie.Title, user.Username))
 			continue
