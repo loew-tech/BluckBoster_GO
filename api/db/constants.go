@@ -23,4 +23,7 @@ const (
 	NOT_CART     = false
 	CHECKOUT     = true
 	NOT_CHECKOUT = false
+
+	RENT_INC   = -1
+	RETURN_INC = 1
 )

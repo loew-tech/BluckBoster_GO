@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"blockbuster/api/db"
 	"context"
 	"log"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-func GetDynamoClient() *dynamodb.Client {
+func GetDynamoClient() db.DynamoDBAPI {
 	config, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		log.Fatalln("FAILED TO INSTANTIATE MemberRepo", err)

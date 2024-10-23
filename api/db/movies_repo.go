@@ -15,13 +15,13 @@ import (
 const movieTableName = "BluckBoster_movies"
 
 type MovieRepo struct {
-	client    dynamodb.Client
+	client    DynamoDBAPI
 	tableName string
 }
 
-func NewMovieRepo(client *dynamodb.Client) MovieRepo {
+func NewMovieRepo(client DynamoDBAPI) MovieRepo {
 	return MovieRepo{
-		client:    *client,
+		client:    client,
 		tableName: movieTableName,
 	}
 }
@@ -137,7 +137,7 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 }
 
 func (r MovieRepo) Rent(movie Movie) (bool, error) {
-	input, err := getUpdateInventoryInput(movie, -1)
+	input, err := getUpdateInventoryInput(movie, RENT_INC)
 	if err != nil {
 		return false, fmt.Errorf("failed to generate input for update call %s", err)
 	}
@@ -145,7 +145,7 @@ func (r MovieRepo) Rent(movie Movie) (bool, error) {
 }
 
 func (r MovieRepo) Return(movie Movie) (bool, error) {
-	input, err := getUpdateInventoryInput(movie, 1)
+	input, err := getUpdateInventoryInput(movie, RETURN_INC)
 	if err != nil {
 		return false, fmt.Errorf("failed to generate input for update call %s", err)
 	}

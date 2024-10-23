@@ -14,14 +14,14 @@ import (
 const membersTableName = "BluckBoster_members"
 
 type MemberRepo struct {
-	client    dynamodb.Client
+	client    DynamoDBAPI
 	tableName string
 	MovieRepo MovieRepo
 }
 
-func NewMembersRepo(client *dynamodb.Client) MemberRepo {
+func NewMembersRepo(client DynamoDBAPI) MemberRepo {
 	return MemberRepo{
-		client:    *client,
+		client:    client,
 		tableName: membersTableName,
 		MovieRepo: NewMovieRepo(client),
 	}
