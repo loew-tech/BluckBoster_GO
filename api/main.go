@@ -12,7 +12,7 @@ import (
 const LOCAL_HOST = "localhost:8080"
 
 func main() {
-	fmt.Println("hello world")
+	fmt.Print("\n***************\n* hello world *\n***************\n\n")
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{

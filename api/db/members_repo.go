@@ -19,11 +19,11 @@ type MemberRepo struct {
 	MovieRepo MovieRepo
 }
 
-func NewMembersRepo(client DynamoDBAPI) MemberRepo {
+func NewMembersRepo(client DynamoDBAPI, movieRepo MovieRepo) MemberRepo {
 	return MemberRepo{
 		client:    client,
 		tableName: membersTableName,
-		MovieRepo: NewMovieRepo(client),
+		MovieRepo: movieRepo,
 	}
 }
 
