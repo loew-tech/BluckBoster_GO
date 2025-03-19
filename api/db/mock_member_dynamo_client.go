@@ -7,7 +7,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-type MockDynamoMemberClient struct{}
+type MockDynamoMemberClient struct {
+	getItemReturn *dynamodb.GetItemOutput
+}
 
 func (mock MockDynamoMemberClient) BatchGetItem(ctx context.Context, params *dynamodb.BatchGetItemInput,
 	optFns ...func(*dynamodb.Options)) (*dynamodb.BatchGetItemOutput, error) {
@@ -21,11 +23,11 @@ func (mock MockDynamoMemberClient) GetItem(ctx context.Context, params *dynamodb
 ) {
 	return &dynamodb.GetItemOutput{
 		Item: map[string]types.AttributeValue{
-			"username":   &types.AttributeValueMemberS{Value: "sea_captain"},
-			"first_name": &types.AttributeValueMemberS{Value: "Sea"},
-			"last_name":  &types.AttributeValueMemberS{Value: "Captain"},
-			"type":       &types.AttributeValueMemberS{Value: "advance"},
-			"cart":       &types.AttributeValueMemberSS{Value: TestMovieIDs},
+			"username":    &types.AttributeValueMemberS{Value: "sea_captain"},
+			"first_name":  &types.AttributeValueMemberS{Value: "Sea"},
+			"last_name":   &types.AttributeValueMemberS{Value: "Captain"},
+			"member_type": &types.AttributeValueMemberS{Value: "advanced"},
+			"cart":        &types.AttributeValueMemberSS{Value: TestMovieIDs},
 		},
 	}, nil
 }
