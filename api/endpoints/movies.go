@@ -1,14 +1,15 @@
 package endpoints
 
 import (
-	"blockbuster/api/db"
+	"blockbuster/api/data"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-var movieRepo = db.NewMovieRepo(GetDynamoClient())
+var movieRepo = data.NewMovieRepo(GetDynamoClient())
 
 func GetMoviesEndpoint(c *gin.Context) {
 	movies, err := movieRepo.GetAllMovies()
@@ -27,4 +28,9 @@ func GetMovieEndpoint(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusOK, movie)
 	}
+}
+
+func GetMovieTriviaEndpoint(c *gin.Context) {
+	data.GetMovieTrivia(strings.ReplaceAll(c.Param("movieID"), "_", " "))
+	c.IndentedJSON(http.StatusNotImplemented, gin.H{"msg": "Trivia Endpoint"})
 }

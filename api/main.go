@@ -29,6 +29,7 @@ func main() {
 
 	router.GET("/api/v1/movies", endpoints.GetMoviesEndpoint)
 	router.GET("/api/v1/movies/:movieID", endpoints.GetMovieEndpoint)
+	router.GET("/api/v1/movies/trivia/:movieID", endpoints.GetMovieTriviaEndpoint)
 	router.GET("/api/v1/members/:username", endpoints.GetMemberEndpoint)
 	router.POST("/api/v1/members/login", endpoints.MemberLoginEndpoint)
 	router.GET("/api/v1/members/:username/cart", endpoints.GetCartMoviesEndpoint)
