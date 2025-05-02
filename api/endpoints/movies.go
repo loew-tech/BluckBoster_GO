@@ -1,11 +1,12 @@
 package endpoints
 
 import (
-	repos "blockbuster/api/repos"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	repos "blockbuster/api/repos"
 )
 
 var movieRepo = repos.NewMovieRepo(GetDynamoClient())

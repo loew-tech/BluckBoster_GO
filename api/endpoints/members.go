@@ -1,12 +1,13 @@
 package endpoints
 
 import (
-	"blockbuster/api/constants"
-	repos "blockbuster/api/repos"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"blockbuster/api/constants"
+	repos "blockbuster/api/repos"
 )
 
 var memberRepo = repos.NewMembersRepo(GetDynamoClient())

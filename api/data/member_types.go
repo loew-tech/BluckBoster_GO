@@ -1,9 +1,9 @@
 package data
 
 import (
-	"blockbuster/api/constants"
-
 	"math"
+
+	"blockbuster/api/constants"
 )
 
 var MemberTypes = map[string]int{
