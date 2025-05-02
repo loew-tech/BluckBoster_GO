@@ -1,14 +1,14 @@
 package endpoints
 
 import (
-	"blockbuster/api/db"
+	repos "blockbuster/api/repos"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-var movieRepo = db.NewMovieRepo(GetDynamoClient())
+var movieRepo = repos.NewMovieRepo(GetDynamoClient())
 
 func GetMoviesEndpoint(c *gin.Context) {
 	movies, err := movieRepo.GetAllMovies()

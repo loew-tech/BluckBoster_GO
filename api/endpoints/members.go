@@ -1,17 +1,18 @@
 package endpoints
 
 import (
-	"blockbuster/api/db"
+	"blockbuster/api/constants"
+	repos "blockbuster/api/repos"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-var memberRepo = db.NewMembersRepo(GetDynamoClient())
+var memberRepo = repos.NewMembersRepo(GetDynamoClient())
 
 func GetMemberEndpoint(c *gin.Context) {
-	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"), db.NOT_CART)
+	found, member, err := memberRepo.GetMemberByUsername(c.Param("username"), constants.NOT_CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user"})
 	} else {
@@ -37,7 +38,7 @@ func MemberLoginEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	found, member, err := memberRepo.GetMemberByUsername(un.Username, db.NOT_CART)
+	found, member, err := memberRepo.GetMemberByUsername(un.Username, constants.NOT_CART)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusNotFound,
@@ -56,7 +57,7 @@ func MemberLoginEndpoint(c *gin.Context) {
 }
 
 func GetCartIDsEndpoint(c *gin.Context) {
-	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), db.CART)
+	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), constants.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
@@ -79,11 +80,11 @@ type ModifyCartRequest struct {
 }
 
 func AddToCartEndpoint(c *gin.Context) {
-	cartHelper(c, db.ADD, false)
+	cartHelper(c, constants.ADD, false)
 }
 
 func RemoveFromCartEndpoint(c *gin.Context) {
-	cartHelper(c, db.DELETE, false)
+	cartHelper(c, constants.DELETE, false)
 }
 
 func cartHelper(c *gin.Context, action string, checkingOut bool) {
@@ -100,7 +101,7 @@ func cartHelper(c *gin.Context, action string, checkingOut bool) {
 	inserted, response, err := memberRepo.ModifyCart(req.Username, req.MovieID, action, checkingOut)
 	if err != nil {
 		act, direction := "adding", "to"
-		if action == db.DELETE {
+		if action == constants.DELETE {
 			act, direction = "removing", "from"
 		}
 		msg := fmt.Sprintf("Error %s %s %s %s cart", act, req.MovieID, direction, req.Username)
@@ -113,7 +114,7 @@ func cartHelper(c *gin.Context, action string, checkingOut bool) {
 	if !inserted {
 		if response == nil {
 			msg := fmt.Sprintf("%s is already in %s cart", req.MovieID, req.Username)
-			if action == db.DELETE {
+			if action == constants.DELETE {
 				msg = fmt.Sprintf("%s was not in %s cart", req.MovieID, req.Username)
 			}
 			c.IndentedJSON(
@@ -178,11 +179,11 @@ func checkoutReturnHelper(c *gin.Context, f func(string, []string) ([]string, in
 }
 
 func GetCheckedOutMovies(c *gin.Context) {
-	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), db.CART)
+	_, user, err := memberRepo.GetMemberByUsername(c.Param("username"), constants.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	}
-	_, movies, err := memberRepo.MovieRepo.GetMoviesByID(user.Checkedout, db.CART)
+	_, movies, err := memberRepo.MovieRepo.GetMoviesByID(user.Checkedout, constants.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusBadGateway, gin.H{"msg": "Failed to retrieve movies from cloud"})
 	} else {
