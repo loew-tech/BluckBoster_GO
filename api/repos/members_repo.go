@@ -9,6 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go/aws"
+
+	"blockbuster/api/constants"
+	"blockbuster/api/data"
 )
 
 const membersTableName = "BluckBoster_members"
@@ -27,8 +30,8 @@ func NewMembersRepo(client *dynamodb.Client) MemberRepo {
 	}
 }
 
-func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, Member, error) {
-	member := Member{}
+func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, data.Member, error) {
+	member := data.Member{}
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
 		log.Printf("Failed to marshal %s\n", username)
@@ -38,10 +41,10 @@ func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, M
 	var attrsToGet []string
 	attrsToGet = nil
 	if cartOnly {
-		attrsToGet = []string{USERNAME, CART_STRING, CHECKED_OUT, TYPE}
+		attrsToGet = []string{constants.USERNAME, constants.CART_STRING, constants.CHECKED_OUT, constants.TYPE}
 	}
 	input := &dynamodb.GetItemInput{
-		Key:             map[string]types.AttributeValue{USERNAME: name},
+		Key:             map[string]types.AttributeValue{constants.USERNAME: name},
 		TableName:       &r.tableName,
 		AttributesToGet: attrsToGet,
 	}
@@ -64,16 +67,16 @@ func (r MemberRepo) GetMemberByUsername(username string, cartOnly bool) (bool, M
 	return true, member, nil
 }
 
-func (r MemberRepo) GetCartMovies(username string) ([]CartMovie, error) {
-	_, user, err := r.GetMemberByUsername(username, CART)
+func (r MemberRepo) GetCartMovies(username string) ([]data.CartMovie, error) {
+	_, user, err := r.GetMemberByUsername(username, constants.CART)
 	if err != nil {
 		log.Printf("Err in fetching cart movie ids for %s\n", username)
 		return nil, err
 	}
 
-	movies := make([]CartMovie, 0)
+	movies := make([]data.CartMovie, 0)
 	if 0 < len(user.Cart) {
-		_, movies, err = r.MovieRepo.GetMoviesByID(user.Cart, CART)
+		_, movies, err = r.MovieRepo.GetMoviesByID(user.Cart, constants.CART)
 		if err != nil {
 			log.Printf("Failed to get movies in cart. %s\n", err)
 			return nil, err
@@ -102,7 +105,7 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string, checkingOut 
 	}
 	updateInput := &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(r.tableName),
-		Key:                       map[string]types.AttributeValue{USERNAME: name},
+		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
 		ExpressionAttributeValues: expressionAttrs,
 		ReturnValues:              types.ReturnValueUpdatedNew,
 		UpdateExpression:          aws.String(updateExpr),
@@ -123,15 +126,15 @@ func (r MemberRepo) updateMember(username string, updateInput *dynamodb.UpdateIt
 
 func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int, error) {
 	rented, messages := 0, make([]string, 0)
-	found, user, err := r.GetMemberByUsername(username, CART)
+	found, user, err := r.GetMemberByUsername(username, constants.CART)
 	if err != nil || !found {
 		return nil, rented, fmt.Errorf("failed to retrieve user from cloud. UserFound=%v err=%s", found, err)
 	}
-	if MemberTypes[user.Type] < len(movieIDs)+len(user.Checkedout) {
+	if data.MemberTypes[user.Type] < len(movieIDs)+len(user.Checkedout) {
 		return nil, rented, nil
 	}
 
-	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_CART)
+	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, constants.NOT_CART)
 	if err != nil {
 		return nil, rented, fmt.Errorf("failed to retrieve movies from cloud %s", err)
 	}
@@ -142,12 +145,12 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 			continue
 		}
 
-		contains, _ := SliceContains(user.Checkedout, movie.ID)
+		contains, _ := data.SliceContains(user.Checkedout, movie.ID)
 		if contains {
 			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
 			continue
 		}
-		contains, _ = SliceContains(user.Cart, movie.ID)
+		contains, _ = data.SliceContains(user.Cart, movie.ID)
 		if !contains {
 			messages = append(messages, fmt.Sprintf("%s is not in %s cart", movie.Title, user.Username))
 			continue
@@ -165,7 +168,7 @@ func (r MemberRepo) Checkout(username string, movieIDs []string) ([]string, int,
 	return messages, rented, nil
 }
 
-func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
+func (r MemberRepo) checkoutMovie(user data.Member, movie data.Movie) (bool, error) {
 	success, err := r.MovieRepo.Rent(movie)
 	if err != nil {
 		return false, fmt.Errorf("err checking %s\n%s", movie.Title, err)
@@ -174,7 +177,7 @@ func (r MemberRepo) checkoutMovie(user Member, movie Movie) (bool, error) {
 		return false, fmt.Errorf("failed to checkout %s", movie.Title)
 	}
 
-	modified, _, err := r.ModifyCart(user.Username, movie.ID, DELETE, CHECKOUT)
+	modified, _, err := r.ModifyCart(user.Username, movie.ID, constants.DELETE, constants.CHECKOUT)
 	if !modified || err != nil {
 		r.MovieRepo.Return(movie)
 		return false, fmt.Errorf("failed to remove %s from %s cart\n%s", movie.Title, user.Username, err)
@@ -188,7 +191,7 @@ func (r MemberRepo) Return(username string, movieIDs []string) ([]string, int, e
 		return nil, 0, err
 	}
 
-	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, NOT_CART)
+	movies, _, err := r.MovieRepo.GetMoviesByID(movieIDs, constants.NOT_CART)
 	if err != nil {
 		log.Print("Err returning movies. Failed to fetch movies from cloud")
 		return nil, 0, err
@@ -207,7 +210,7 @@ func (r MemberRepo) Return(username string, movieIDs []string) ([]string, int, e
 		}
 		updateInput := &dynamodb.UpdateItemInput{
 			TableName:                 aws.String(r.tableName),
-			Key:                       map[string]types.AttributeValue{USERNAME: name},
+			Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
 			ExpressionAttributeValues: expressionAttrs,
 			ReturnValues:              types.ReturnValueUpdatedNew,
 			UpdateExpression:          aws.String(updateExpr),

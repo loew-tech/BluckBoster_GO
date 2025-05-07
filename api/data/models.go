@@ -1,4 +1,4 @@
-package db
+package data
 
 type Cart struct {
 	Cart []string `json:"cart,omitempty"`

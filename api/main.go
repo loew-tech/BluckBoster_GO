@@ -1,12 +1,13 @@
 package main
 
 import (
-	"blockbuster/api/endpoints"
 	"fmt"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	"blockbuster/api/endpoints"
 )
 
 const LOCAL_HOST = "localhost:8080"

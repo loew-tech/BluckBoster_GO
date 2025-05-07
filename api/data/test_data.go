@@ -1,4 +1,4 @@
-package db
+package data
 
 var TestMovies = []Movie{
 	{Cast: []string{

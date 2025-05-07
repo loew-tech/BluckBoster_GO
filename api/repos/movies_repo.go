@@ -10,6 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	"blockbuster/api/constants"
+	"blockbuster/api/data"
 )
 
 const movieTableName = "BluckBoster_movies"
@@ -26,7 +29,7 @@ func NewMovieRepo(client *dynamodb.Client) MovieRepo {
 	}
 }
 
-func (r MovieRepo) GetAllMovies() ([]Movie, error) {
+func (r MovieRepo) GetAllMovies() ([]data.Movie, error) {
 	params := &dynamodb.ScanInput{
 		TableName: &r.tableName,
 	}
@@ -36,9 +39,9 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 		return nil, err
 	}
 
-	movies := make([]Movie, 0)
+	movies := make([]data.Movie, 0)
 	for _, i := range result.Items {
-		movie := Movie{}
+		movie := data.Movie{}
 		err = attributevalue.UnmarshalMap(i, &movie)
 
 		if err != nil {
@@ -49,15 +52,15 @@ func (r MovieRepo) GetAllMovies() ([]Movie, error) {
 	return movies, nil
 }
 
-func (r MovieRepo) GetMovieByID(movieID string, forCart bool) (Movie, CartMovie, error) {
+func (r MovieRepo) GetMovieByID(movieID string, forCart bool) (data.Movie, data.CartMovie, error) {
 	expr := "#i, title, inventory"
 	exprAttrNames := map[string]string{"#i": "id"}
 	if !forCart {
 		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
-		exprAttrNames["#c"], exprAttrNames["#y"] = CAST, YEAR
+		exprAttrNames["#c"], exprAttrNames["#y"] = constants.CAST, constants.YEAR
 	}
 	input := &dynamodb.GetItemInput{
-		Key:                      map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: movieID}},
+		Key:                      map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
 		TableName:                aws.String(r.tableName),
 		ProjectionExpression:     &expr,
 		ExpressionAttributeNames: exprAttrNames,
@@ -66,10 +69,10 @@ func (r MovieRepo) GetMovieByID(movieID string, forCart bool) (Movie, CartMovie,
 	result, err := r.client.GetItem(context.TODO(), input)
 	if err != nil {
 		log.Printf("Err fetching movies from cloud: %s\n", err)
-		return Movie{}, CartMovie{}, err
+		return data.Movie{}, data.CartMovie{}, err
 	}
 
-	movie, cartMovie := Movie{}, CartMovie{}
+	movie, cartMovie := data.Movie{}, data.CartMovie{}
 	if !forCart {
 		err = attributevalue.UnmarshalMap(result.Item, &movie)
 	} else {
@@ -82,19 +85,19 @@ func (r MovieRepo) GetMovieByID(movieID string, forCart bool) (Movie, CartMovie,
 	return movie, cartMovie, err
 }
 
-func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []CartMovie, error) {
+func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]data.Movie, []data.CartMovie, error) {
 	if len(movieIDs) == 0 {
-		return make([]Movie, 0), make([]CartMovie, 0), nil
+		return make([]data.Movie, 0), make([]data.CartMovie, 0), nil
 	}
 	keys := make([]map[string]types.AttributeValue, 0)
 	for _, mid := range movieIDs {
-		keys = append(keys, map[string]types.AttributeValue{ID: &types.AttributeValueMemberS{Value: mid}})
+		keys = append(keys, map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: mid}})
 	}
 	expr := "#i, title, inventory"
 	exprAttrNames := map[string]string{"#i": "id"}
 	if !forCart {
 		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
-		exprAttrNames["#c"], exprAttrNames["#y"] = CAST, YEAR
+		exprAttrNames["#c"], exprAttrNames["#y"] = constants.CAST, constants.YEAR
 	}
 	input := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]types.KeysAndAttributes{
@@ -112,19 +115,19 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 		return nil, nil, err
 	}
 
-	movies, cartMovies := make([]Movie, 0), make([]CartMovie, 0)
+	movies, cartMovies := make([]data.Movie, 0), make([]data.CartMovie, 0)
 	for _, v := range result.Responses {
 		for _, m := range v {
 			if forCart {
 				// @TODO: refactor to remove deep leveling
-				cartMovie := CartMovie{}
+				cartMovie := data.CartMovie{}
 				if err = attributevalue.UnmarshalMap(m, &cartMovie); err != nil {
 					log.Printf("Got error unmarshalling: %s", err)
 					continue
 				}
 				cartMovies = append(cartMovies, cartMovie)
 			} else {
-				movie := Movie{}
+				movie := data.Movie{}
 				if err = attributevalue.UnmarshalMap(m, &movie); err != nil {
 					log.Printf("Got error unmarshalling: %s", err)
 					continue
@@ -136,7 +139,7 @@ func (r MovieRepo) GetMoviesByID(movieIDs []string, forCart bool) ([]Movie, []Ca
 	return movies, cartMovies, nil
 }
 
-func (r MovieRepo) Rent(movie Movie) (bool, error) {
+func (r MovieRepo) Rent(movie data.Movie) (bool, error) {
 	input, err := getUpdateInventoryInput(movie, -1)
 	if err != nil {
 		return false, fmt.Errorf("failed to generate input for update call %s", err)
@@ -144,7 +147,7 @@ func (r MovieRepo) Rent(movie Movie) (bool, error) {
 	return r.updateInventory(movie, input)
 }
 
-func (r MovieRepo) Return(movie Movie) (bool, error) {
+func (r MovieRepo) Return(movie data.Movie) (bool, error) {
 	input, err := getUpdateInventoryInput(movie, 1)
 	if err != nil {
 		return false, fmt.Errorf("failed to generate input for update call %s", err)
@@ -152,7 +155,7 @@ func (r MovieRepo) Return(movie Movie) (bool, error) {
 	return r.updateInventory(movie, input)
 }
 
-func getUpdateInventoryInput(movie Movie, inventoryInc int) (*dynamodb.UpdateItemInput, error) {
+func getUpdateInventoryInput(movie data.Movie, inventoryInc int) (*dynamodb.UpdateItemInput, error) {
 	mid, err := attributevalue.Marshal(movie.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal data %s", err)
@@ -160,7 +163,7 @@ func getUpdateInventoryInput(movie Movie, inventoryInc int) (*dynamodb.UpdateIte
 
 	return &dynamodb.UpdateItemInput{
 		TableName: aws.String(movieTableName),
-		Key:       map[string]types.AttributeValue{ID: mid},
+		Key:       map[string]types.AttributeValue{constants.ID: mid},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":inventory": &types.AttributeValueMemberN{
 				Value: strconv.Itoa(movie.Inventory + inventoryInc),
@@ -174,7 +177,7 @@ func getUpdateInventoryInput(movie Movie, inventoryInc int) (*dynamodb.UpdateIte
 	}, nil
 }
 
-func (r MovieRepo) updateInventory(movie Movie, input *dynamodb.UpdateItemInput) (bool, error) {
+func (r MovieRepo) updateInventory(movie data.Movie, input *dynamodb.UpdateItemInput) (bool, error) {
 	response, err := r.client.UpdateItem(context.TODO(), input)
 	if err != nil {
 		log.Printf("Failed to update movie item %s\nResp %v\nErr: %s\n", movie.ID, response, err)

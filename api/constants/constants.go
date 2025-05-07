@@ -1,4 +1,4 @@
-package db
+package constants
 
 const (
 	ID          = "id"
