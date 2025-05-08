@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/aws/aws-sdk-go/aws"
 
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
@@ -104,11 +103,11 @@ func (r MemberRepo) ModifyCart(username, movieID, updateKey string, checkingOut 
 		expressionAttrs[":checked_out"] = &types.AttributeValueMemberSS{Value: []string{movieID}}
 	}
 	updateInput := &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(r.tableName),
+		TableName:                 &r.tableName,
 		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
 		ExpressionAttributeValues: expressionAttrs,
 		ReturnValues:              types.ReturnValueUpdatedNew,
-		UpdateExpression:          aws.String(updateExpr),
+		UpdateExpression:          &updateExpr,
 	}
 	return r.updateMember(username, updateInput)
 }
@@ -209,11 +208,11 @@ func (r MemberRepo) Return(username string, movieIDs []string) ([]string, int, e
 			},
 		}
 		updateInput := &dynamodb.UpdateItemInput{
-			TableName:                 aws.String(r.tableName),
+			TableName:                 &r.tableName,
 			Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
 			ExpressionAttributeValues: expressionAttrs,
 			ReturnValues:              types.ReturnValueUpdatedNew,
-			UpdateExpression:          aws.String(updateExpr),
+			UpdateExpression:          &updateExpr,
 		}
 		ok, response, err := r.updateMember(username, updateInput)
 		if err != nil || !ok {
