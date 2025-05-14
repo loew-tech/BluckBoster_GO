@@ -62,7 +62,7 @@ def update_movie(id_, trivia: str) -> None:
 
 if __name__ == '__main__':
     print('Hello trivia')
-    for i, entry in enumerate(get_movies()):
+    for entry in get_movies():
         m, y, movie_id = entry
         triv = get_trivia(m, y)
         update_movie(movie_id, triv)
