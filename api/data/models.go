@@ -24,6 +24,7 @@ type Movie struct {
 	Rating    string   `json:"rating" dynamodbav:"rating"`
 	Review    string   `json:"review" dynamodbav:"review"`
 	Synopsis  string   `json:"synopsis" dynamodbav:"synopsis"`
+	Trivia    string   `json:"trivia" dynamodbav:"trivia"`
 	Year      string   `json:"year" dynamodbav:"year"`
 }
 
@@ -31,4 +32,8 @@ type CartMovie struct {
 	ID        string `json:"id" dynamodbav:"id"`
 	Title     string `json:"title" dynamodbav:"title"`
 	Invnetory int    `json:"inventory" dynamodbav:"inventory"`
+}
+
+type MovieTrivia struct {
+	Trivia string `json:"trivia" dynamodbav:"trivia"`
 }

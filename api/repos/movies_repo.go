@@ -185,3 +185,25 @@ func (r MovieRepo) updateInventory(movie data.Movie, input *dynamodb.UpdateItemI
 	}
 	return true, nil
 }
+
+func (r MovieRepo) GetTrivia(movieID string) (data.MovieTrivia, error) {
+	input := &dynamodb.GetItemInput{
+		Key:             map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
+		TableName:       &r.tableName,
+		AttributesToGet: []string{constants.TRIVIA},
+	}
+
+	response, err := r.client.GetItem(context.TODO(), input)
+	if err != nil {
+		log.Printf("Failed to get trvia for %s\nResp %v\nErr: %s\n", movieID, response, err)
+		return data.MovieTrivia{}, err
+	}
+
+	trivia := data.MovieTrivia{}
+	if err = attributevalue.UnmarshalMap(response.Item, &trivia); err != nil {
+		errMSg := fmt.Sprintf("Got error unmarshalling: %s", err)
+		log.Printf(errMSg)
+		return data.MovieTrivia{}, err
+	}
+	return trivia, nil
+}
