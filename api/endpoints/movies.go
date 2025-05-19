@@ -29,3 +29,13 @@ func GetMovieEndpoint(c *gin.Context) {
 		c.IndentedJSON(http.StatusOK, movie)
 	}
 }
+
+func GetTriviaEndpoint(c *gin.Context) {
+	movieID := c.Param("movieID")
+	trivia, err := movieRepo.GetTrivia(movieID)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to retrieve movieID %s", movieID)})
+	} else {
+		c.IndentedJSON(http.StatusOK, trivia)
+	}
+}

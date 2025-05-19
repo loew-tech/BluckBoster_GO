@@ -8,9 +8,10 @@ const (
 	CHECKED_OUT = "checked_out"
 	TYPE        = "member_type"
 
-	TITLE = "title"
-	CAST  = "cast"
-	YEAR  = "year"
+	TITLE  = "title"
+	CAST   = "cast"
+	YEAR   = "year"
+	TRIVIA = "trivia"
 
 	ADD    = "ADD"
 	DELETE = "DELETE"
