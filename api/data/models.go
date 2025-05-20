@@ -20,11 +20,11 @@ type Movie struct {
 	Cast      []string `json:"cast" dynamodbav:"cast"`
 	Director  string   `json:"director" dynamodbav:"director"`
 	Inventory int      `json:"inventory" dynamodbav:"inventory"`
-	Rented    int      `json:"rented,omitempty" dynamodbav:"rented"`
-	Rating    string   `json:"rating" dynamodbav:"rating"`
-	Review    string   `json:"review" dynamodbav:"review"`
-	Synopsis  string   `json:"synopsis" dynamodbav:"synopsis"`
-	Trivia    string   `json:"trivia" dynamodbav:"trivia"`
+	Rented    int      `json:"rented,omitempty" dynamodbav:"rented,omitempty"`
+	Rating    string   `json:"rating,omitempty" dynamodbav:"rating,omitempty"`
+	Review    string   `json:"review,omitempty" dynamodbav:"review,omitempty"`
+	Synopsis  string   `json:"synopsis,omitempty" dynamodbav:"synopsis,omitempty"`
+	Trivia    string   `json:"trivia,omitempty" dynamodbav:"trivia,omitempty"`
 	Year      string   `json:"year" dynamodbav:"year"`
 }
 

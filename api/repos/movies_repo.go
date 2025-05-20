@@ -30,8 +30,12 @@ func NewMovieRepo(client *dynamodb.Client) MovieRepo {
 }
 
 func (r MovieRepo) GetAllMovies() ([]data.Movie, error) {
+	expr := "#i, title, #c, director, inventory, rented, rating, #y"
+	exprAttrNames := map[string]string{"#i": "id", "#c": constants.CAST, "#y": constants.YEAR}
 	params := &dynamodb.ScanInput{
-		TableName: &r.tableName,
+		TableName:                &r.tableName,
+		ProjectionExpression:     &expr,
+		ExpressionAttributeNames: exprAttrNames,
 	}
 	result, err := r.client.Scan(context.TODO(), params)
 	if err != nil {
