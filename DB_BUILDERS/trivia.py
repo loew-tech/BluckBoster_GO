@@ -22,7 +22,7 @@ def get_movies() -> Generator:
         data = json.load(json_)
 
     for d in data:
-        yield (d['title'], d['year'], d['id'])
+        yield d['title'], d['year'], d['id']
 
 
 def get_trivia(movie: str, year: int | str) -> str:

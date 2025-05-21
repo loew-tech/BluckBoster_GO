@@ -29,26 +29,33 @@ func NewMovieRepo(client *dynamodb.Client) MovieRepo {
 	}
 }
 
-func (r MovieRepo) GetAllMovies() ([]data.Movie, error) {
-	params := &dynamodb.ScanInput{
+func (r MovieRepo) GetMoviesByPage(page string) ([]data.Movie, error) {
+	input := &dynamodb.QueryInput{
 		TableName: &r.tableName,
+		IndexName: aws.String("paginate_key-index"),
+		KeyConditions: map[string]types.Condition{
+			"paginate_key": {
+				ComparisonOperator: types.ComparisonOperatorEq,
+				AttributeValueList: []types.AttributeValue{
+					&types.AttributeValueMemberS{Value: page},
+				},
+			},
+		},
 	}
-	result, err := r.client.Scan(context.TODO(), params)
+
+	response, err := r.client.Query(context.TODO(), input)
 	if err != nil {
-		log.Printf("Query API call failed: %s\n", err)
+		log.Printf("Err querying movies from cloud: %s\n", err)
 		return nil, err
 	}
 
-	movies := make([]data.Movie, 0)
-	for _, i := range result.Items {
-		movie := data.Movie{}
-		err = attributevalue.UnmarshalMap(i, &movie)
-
-		if err != nil {
-			log.Printf("Got error unmarshalling: %s\n", err)
-		}
-		movies = append(movies, movie)
+	var movies []data.Movie
+	err = attributevalue.UnmarshalListOfMaps(response.Items, &movies)
+	if err != nil {
+		log.Printf("Err unmarshalling movies from query response: %s\n", err)
+		return nil, err
 	}
+
 	return movies, nil
 }
 
