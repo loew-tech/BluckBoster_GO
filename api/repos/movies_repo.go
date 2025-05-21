@@ -29,7 +29,7 @@ func NewMovieRepo(client *dynamodb.Client) MovieRepo {
 	}
 }
 
-func (r MovieRepo) GetAllMovies() ([]data.Movie, error) {
+func (r MovieRepo) GetMoviesByPage(page string) ([]data.Movie, error) {
 	input := &dynamodb.QueryInput{
 		TableName: &r.tableName,
 		IndexName: aws.String("paginate_key-index"),
@@ -37,7 +37,7 @@ func (r MovieRepo) GetAllMovies() ([]data.Movie, error) {
 			"paginate_key": {
 				ComparisonOperator: types.ComparisonOperatorEq,
 				AttributeValueList: []types.AttributeValue{
-					&types.AttributeValueMemberS{Value: "A"},
+					&types.AttributeValueMemberS{Value: page},
 				},
 			},
 		},

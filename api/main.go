@@ -28,7 +28,7 @@ func main() {
 		MaxAge: 12 * time.Hour,
 	}))
 
-	router.GET("/api/v1/movies", endpoints.GetMoviesEndpoint)
+	router.GET("/api/v1/movies", endpoints.GetMoviesByPageEndpoint)
 	router.GET("/api/v1/movies/:movieID", endpoints.GetMovieEndpoint)
 	router.GET("/api/v1/movies/:movieID/trivia", endpoints.GetTriviaEndpoint)
 	router.GET("/api/v1/members/:username", endpoints.GetMemberEndpoint)

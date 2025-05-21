@@ -3,6 +3,7 @@ package endpoints
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,8 +12,14 @@ import (
 
 var movieRepo = repos.NewMovieRepo(GetDynamoClient())
 
-func GetMoviesEndpoint(c *gin.Context) {
-	movies, err := movieRepo.GetAllMovies()
+const VALID_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#"
+
+func GetMoviesByPageEndpoint(c *gin.Context) {
+	pageKey := strings.ToUpper(c.DefaultQuery("page", "A"))
+	if !strings.Contains(VALID_KEYS, pageKey) {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("No movies associated with page key: %s", pageKey)})
+	}
+	movies, err := movieRepo.GetMoviesByPage(pageKey)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve movies"})
 	} else {
