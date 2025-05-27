@@ -16,6 +16,7 @@ const (
 
 	// Movie
 	MOVIE      = "movie"
+	MOVIES     = "movies"
 	MOVIE_TYPE = "Movie"
 	TITLE      = "title"
 	CAST       = "cast"
