@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/handler"
 
 	"blockbuster/api/constants"
 	"blockbuster/api/endpoints"
@@ -24,6 +26,7 @@ var MovieType = graphql.NewObject(graphql.ObjectConfig{
 		constants.RENTED:    &graphql.Field{Type: graphql.Int},
 		constants.YEAR:      &graphql.Field{Type: graphql.String},
 		constants.CAST:      &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
+		constants.DIRECTOR:  &graphql.Field{Type: graphql.String},
 		constants.TITLE:     &graphql.Field{Type: graphql.String},
 	},
 })
@@ -43,7 +46,7 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 
 func Foo() {
 	fields := graphql.Fields{
-		constants.MOVIES: &graphql.Field{
+		"GetMovies": &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
 				"page": &graphql.ArgumentConfig{Type: graphql.String},
@@ -53,23 +56,34 @@ func Foo() {
 				if !ok {
 					page = "A"
 				}
-				movies, _ := movieRepo.GetMoviesByPage(page)
-				return movies, nil
+				return movieRepo.GetMoviesByPage(page)
 			},
 		},
-		constants.MEMBER: &graphql.Field{
+		"GetMovie": &graphql.Field{
+			Type: MovieType,
+			Args: graphql.FieldConfigArgument{
+				"movieID": &graphql.ArgumentConfig{Type: graphql.ID},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				movieID := p.Args["movieID"].(string)
+				movie, _, err := movieRepo.GetMovieByID(movieID, constants.NOT_CART)
+				if err != nil {
+					log.Fatalf("Failed to retrieve movie with ID %s from cloud. Err: %s\n", movieID, err)
+				}
+				return movie, nil
+			},
+		},
+		"GetMember": &graphql.Field{
 			Type: MemberType,
 			Args: graphql.FieldConfigArgument{
 				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username := p.Args[constants.USERNAME].(string)
-				fmt.Printf("** Tick username= %s\n\n", username)
 				_, member, err := membersRepo.GetMemberByUsername(username, false)
 				if err != nil {
 					log.Fatalf("Failed to retrieve member from cloud. err: %s", err)
 				}
-				fmt.Println(member.Username, member.Cart, member.Type)
 				return member, nil
 			},
 		},
@@ -83,7 +97,7 @@ func Foo() {
 
 	query := `
 		query movies($page: String) {
-			movies(page: $page){
+			GetMovies(page: $page){
 				id
 				inventory
 			}
@@ -104,8 +118,8 @@ func Foo() {
 	fmt.Print("\n======\n\n")
 
 	queryMember := `
-		query member($username: ID) {
-			member(username: $username) {
+		query Member($username: ID) {
+			GetMember(username: $username) {
 				username
 				last_name
 				member_type
@@ -125,5 +139,13 @@ func Foo() {
 	}
 	rJSONMember, _ := json.Marshal(rMember)
 	fmt.Printf("2.\n%s \n", rJSONMember)
+
+	handler := handler.New(&handler.Config{
+		Schema: &schema,
+		Pretty: true,
+	})
+
+	http.Handle("/graphql", handler)
+	http.ListenAndServe(":8080", nil)
 	fmt.Println("\nGoob Bye GQL")
 }
