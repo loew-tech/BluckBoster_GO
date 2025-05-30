@@ -4,7 +4,10 @@ const (
 	ID = "id"
 
 	// Member
+	MEMBER      = "member"
+	MEMBER_TYPE = "Member"
 	USERNAME    = "username"
+	FIRSTNAME   = "first_name"
 	LASTNAME    = "last_name"
 	CART_STRING = "cart"
 	CHECKED_OUT = "checked_out"
