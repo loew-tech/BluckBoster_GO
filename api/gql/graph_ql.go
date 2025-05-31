@@ -1,6 +1,7 @@
 package gql
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -8,12 +9,18 @@ import (
 	"github.com/graphql-go/handler"
 
 	"blockbuster/api/constants"
+	"blockbuster/api/data"
 	"blockbuster/api/endpoints"
 	"blockbuster/api/repos"
 )
 
 var movieRepo = repos.NewMovieRepo(endpoints.GetDynamoClient())
 var membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
+
+const ASCII_UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+var PAGES = []string{"#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+var DIRECTED = make(map[string][]data.Movie)
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MOVIE_TYPE,
@@ -47,14 +54,26 @@ func getFields() graphql.Fields {
 		constants.GET_MOVIES: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
-				constants.PAGE: &graphql.ArgumentConfig{Type: graphql.String},
+				constants.PAGE:     &graphql.ArgumentConfig{Type: graphql.String},
+				constants.DIRECTOR: &graphql.ArgumentConfig{Type: graphql.String},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				page, ok := p.Args[constants.PAGE].(string)
 				if !ok {
 					page = "A"
 				}
-				return movieRepo.GetMoviesByPage(page)
+				movies, _ := movieRepo.GetMoviesByPage(page)
+				director, ok := p.Args[constants.DIRECTOR]
+				if !ok {
+					return movies, nil
+				}
+				moviesDirected := make([]data.Movie, 0)
+				for _, movie := range movies {
+					if movie.Director == director {
+						moviesDirected = append(moviesDirected, movie)
+					}
+				}
+				return moviesDirected, nil
 			},
 		},
 		constants.GET_MOVIE: &graphql.Field{
@@ -83,6 +102,33 @@ func getFields() graphql.Fields {
 					log.Fatalf("Failed to retrieve member from cloud. err: %s", err)
 				}
 				return member, nil
+			},
+		},
+		constants.DIRECTED_BY: &graphql.Field{
+			Type: graphql.NewList(MovieType),
+			Args: graphql.FieldConfigArgument{
+				constants.DIRECTOR: &graphql.ArgumentConfig{Type: graphql.ID},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				director := p.Args[constants.DIRECTOR].(string)
+				fmt.Printf("director=%s\n", director)
+				if len(DIRECTED) == 0 {
+					fmt.Println("populating cache")
+					for _, page := range PAGES {
+						fmt.Println(page)
+						movies, err := movieRepo.GetMoviesByPage(page)
+						if err != nil {
+							log.Fatalf("Err fetching movies for page %s. Err: %s", page, err)
+						}
+						for _, movie := range movies {
+							fmt.Printf("\t%s ", movie.ID)
+							DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
+						}
+					}
+					fmt.Println("\n***")
+				}
+				fmt.Println("returning", DIRECTED[director])
+				return DIRECTED[director], nil
 			},
 		},
 	}
