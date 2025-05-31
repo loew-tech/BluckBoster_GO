@@ -63,7 +63,7 @@ func (r MovieRepo) GetMovieByID(movieID string, forCart bool) (data.Movie, data.
 	expr := "#i, title, inventory"
 	exprAttrNames := map[string]string{"#i": "id"}
 	if !forCart {
-		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
+		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, trivia, #y", expr)
 		exprAttrNames["#c"], exprAttrNames["#y"] = constants.CAST, constants.YEAR
 	}
 	input := &dynamodb.GetItemInput{
