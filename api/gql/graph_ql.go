@@ -1,7 +1,6 @@
 package gql
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -111,23 +110,17 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
-				fmt.Printf("director=%s\n", director)
 				if len(DIRECTED) == 0 {
-					fmt.Println("populating cache")
 					for _, page := range PAGES {
-						fmt.Println(page)
 						movies, err := movieRepo.GetMoviesByPage(page)
 						if err != nil {
 							log.Fatalf("Err fetching movies for page %s. Err: %s", page, err)
 						}
 						for _, movie := range movies {
-							fmt.Printf("\t%s ", movie.ID)
 							DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
 						}
 					}
-					fmt.Println("\n***")
 				}
-				fmt.Println("returning", DIRECTED[director])
 				return DIRECTED[director], nil
 			},
 		},
