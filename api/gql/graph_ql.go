@@ -1,11 +1,9 @@
 package gql
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
-	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
 
@@ -44,28 +42,28 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func Foo() {
-	fields := graphql.Fields{
-		"GetMovies": &graphql.Field{
+func getFields() graphql.Fields {
+	return graphql.Fields{
+		constants.GET_MOVIES: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
-				"page": &graphql.ArgumentConfig{Type: graphql.String},
+				constants.PAGE: &graphql.ArgumentConfig{Type: graphql.String},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				page, ok := p.Args["page"].(string)
+				page, ok := p.Args[constants.PAGE].(string)
 				if !ok {
 					page = "A"
 				}
 				return movieRepo.GetMoviesByPage(page)
 			},
 		},
-		"GetMovie": &graphql.Field{
+		constants.GET_MOVIE: &graphql.Field{
 			Type: MovieType,
 			Args: graphql.FieldConfigArgument{
-				"movieID": &graphql.ArgumentConfig{Type: graphql.ID},
+				constants.MOVIE_ID: &graphql.ArgumentConfig{Type: graphql.ID},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				movieID := p.Args["movieID"].(string)
+				movieID := p.Args[constants.MOVIE_ID].(string)
 				movie, _, err := movieRepo.GetMovieByID(movieID, constants.NOT_CART)
 				if err != nil {
 					log.Fatalf("Failed to retrieve movie with ID %s from cloud. Err: %s\n", movieID, err)
@@ -73,7 +71,7 @@ func Foo() {
 				return movie, nil
 			},
 		},
-		"GetMember": &graphql.Field{
+		constants.GET_MEMBER: &graphql.Field{
 			Type: MemberType,
 			Args: graphql.FieldConfigArgument{
 				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
@@ -88,64 +86,28 @@ func Foo() {
 			},
 		},
 	}
+}
+
+func getSchema() graphql.Schema {
+	fields := getFields()
 	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: fields}
 	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
 	schema, err := graphql.NewSchema(schemaConfig)
 	if err != nil {
 		log.Fatalf("failed to create new schema, error: %v", err)
 	}
+	return schema
+}
 
-	query := `
-		query movies($page: String) {
-			GetMovies(page: $page){
-				id
-				inventory
-			}
-		}
-	`
+func GetGQLHandler() func(*gin.Context) {
 
-	variableValues := map[string]interface{}{
-		"page": "Z",
-	}
-
-	params := graphql.Params{Schema: schema, RequestString: query, VariableValues: variableValues}
-	r := graphql.Do(params)
-	if len(r.Errors) > 0 {
-		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
-	}
-	rJSON, _ := json.Marshal(r)
-	fmt.Printf("%s \n", rJSON)
-	fmt.Print("\n======\n\n")
-
-	queryMember := `
-		query Member($username: ID) {
-			GetMember(username: $username) {
-				username
-				last_name
-				member_type
-				cart
-				checked_out
-			}
-		}
-	`
-
-	variableValuesMember := map[string]interface{}{
-		"username": "sea_captain",
-	}
-	paramsMember := graphql.Params{Schema: schema, RequestString: queryMember, VariableValues: variableValuesMember}
-	rMember := graphql.Do(paramsMember)
-	if len(rMember.Errors) > 0 {
-		log.Fatalf("failed to execute graphql operation, errors: %+v", rMember.Errors)
-	}
-	rJSONMember, _ := json.Marshal(rMember)
-	fmt.Printf("2.\n%s \n", rJSONMember)
-
-	handler := handler.New(&handler.Config{
+	schema := getSchema()
+	gqlHandler := handler.New(&handler.Config{
 		Schema: &schema,
 		Pretty: true,
 	})
 
-	http.Handle("/graphql", handler)
-	http.ListenAndServe(":8080", nil)
-	fmt.Println("\nGoob Bye GQL")
+	return func(c *gin.Context) {
+		gqlHandler.ServeHTTP(c.Writer, c.Request)
+	}
 }

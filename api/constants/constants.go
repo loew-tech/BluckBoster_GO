@@ -38,4 +38,11 @@ const (
 	NOT_CART     = false
 	CHECKOUT     = true
 	NOT_CHECKOUT = false
+
+	// GraphQL
+	MOVIE_ID   = "movieID"
+	PAGE       = "page"
+	GET_MOVIES = "GetMovies"
+	GET_MOVIE  = "GetMovie"
+	GET_MEMBER = "GetMember"
 )

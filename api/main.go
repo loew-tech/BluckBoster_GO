@@ -16,12 +16,9 @@ const LOCAL_HOST = "localhost:8080"
 func main() {
 	fmt.Println("hello world")
 
-	gql.Foo()
-
-	fmt.Println("\n\n==================\n\n")
+	gqlHandler := gql.GetGQLHandler()
 
 	router := gin.Default()
-
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "PUT", "POST", "DELETE"},
@@ -48,6 +45,7 @@ func main() {
 	router.POST("/api/v1/members/checkout", endpoints.CheckoutEndpoint)
 	router.GET("api/v1/members/:username/checkedout", endpoints.GetCheckedOutMovies)
 	router.POST("/api/v1/members/return", endpoints.ReturnEndpoint)
+	router.POST("/graphql/v1", gqlHandler)
 
 	router.Run(LOCAL_HOST)
 }
