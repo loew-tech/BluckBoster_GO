@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"blockbuster/api/endpoints"
-	"blockbuster/api/gql"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	"blockbuster/api/endpoints"
+	"blockbuster/api/gql"
 )
 
 const LOCAL_HOST = "localhost:8080"
