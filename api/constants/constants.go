@@ -46,4 +46,7 @@ const (
 	GET_MOVIE   = "GetMovie"
 	GET_MEMBER  = "GetMember"
 	DIRECTED_BY = "DirectedBy"
+	STAR        = "star"
+	STARREDIN   = "StarredIn"
+	STARREDWITH = "StarredWith"
 )

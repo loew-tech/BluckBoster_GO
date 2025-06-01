@@ -20,6 +20,8 @@ const ASCII_UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 var PAGES = []string{"#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
 var DIRECTED = make(map[string][]data.Movie)
+var STARRED_WITH = make(map[string][]string)
+var STARRED_IN = make(map[string][]data.Movie)
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MOVIE_TYPE,
@@ -47,6 +49,30 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 		constants.TYPE:        &graphql.Field{Type: graphql.String},
 	},
 })
+
+func populateCaches() {
+	if len(DIRECTED) != 0 && len(STARRED_IN) != 0 && len(STARRED_WITH) != 0 {
+		return
+	}
+	for _, page := range PAGES {
+		movies, err := movieRepo.GetMoviesByPage(page)
+		if err != nil {
+			log.Fatalf("Err fetching movies for page %s. Err: %s", page, err)
+		}
+		for _, movie := range movies {
+			DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
+			for _, actor := range movie.Cast {
+				STARRED_IN[actor] = append(STARRED_IN[actor], movie)
+				for _, coStar := range movie.Cast {
+					if actor == coStar {
+						continue
+					}
+					STARRED_WITH[actor] = append(STARRED_WITH[actor], coStar)
+				}
+			}
+		}
+	}
+}
 
 func getFields() graphql.Fields {
 	return graphql.Fields{
@@ -111,17 +137,35 @@ func getFields() graphql.Fields {
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
 				if len(DIRECTED) == 0 {
-					for _, page := range PAGES {
-						movies, err := movieRepo.GetMoviesByPage(page)
-						if err != nil {
-							log.Fatalf("Err fetching movies for page %s. Err: %s", page, err)
-						}
-						for _, movie := range movies {
-							DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
-						}
-					}
+					populateCaches()
 				}
 				return DIRECTED[director], nil
+			},
+		},
+		constants.STARREDIN: &graphql.Field{
+			Type: graphql.NewList(MovieType),
+			Args: graphql.FieldConfigArgument{
+				constants.STAR: &graphql.ArgumentConfig{Type: graphql.String},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				star := p.Args[constants.STAR].(string)
+				if len(STARRED_IN) == 0 {
+					populateCaches()
+				}
+				return STARRED_IN[star], nil
+			},
+		},
+		constants.STARREDWITH: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.STAR: &graphql.ArgumentConfig{Type: graphql.String},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				star := p.Args[constants.STAR].(string)
+				if len(STARRED_WITH) == 0 {
+					populateCaches()
+				}
+				return STARRED_WITH[star], nil
 			},
 		},
 	}
