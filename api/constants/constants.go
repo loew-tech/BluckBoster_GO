@@ -40,9 +40,10 @@ const (
 	NOT_CHECKOUT = false
 
 	// GraphQL
-	MOVIE_ID   = "movieID"
-	PAGE       = "page"
-	GET_MOVIES = "GetMovies"
-	GET_MOVIE  = "GetMovie"
-	GET_MEMBER = "GetMember"
+	MOVIE_ID    = "movieID"
+	PAGE        = "page"
+	GET_MOVIES  = "GetMovies"
+	GET_MOVIE   = "GetMovie"
+	GET_MEMBER  = "GetMember"
+	DIRECTED_BY = "DirectedBy"
 )
