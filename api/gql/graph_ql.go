@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/handler"
+	"github.com/rs/cors"
 
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
@@ -15,8 +16,6 @@ import (
 
 var movieRepo = repos.NewMovieRepo(endpoints.GetDynamoClient())
 var membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
-
-const ASCII_UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 var PAGES = []string{"#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
 var DIRECTED = make(map[string][]data.Movie)
@@ -41,7 +40,7 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MEMBER_TYPE,
 	Fields: graphql.Fields{
 		constants.USERNAME:    &graphql.Field{Type: graphql.String},
-		constants.FIRSTNAME:   &graphql.Field{Type: graphql.Int},
+		constants.FIRSTNAME:   &graphql.Field{Type: graphql.String},
 		constants.LASTNAME:    &graphql.Field{Type: graphql.String},
 		constants.CART_STRING: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.CHECKED_OUT: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
@@ -79,14 +78,14 @@ func getFields() graphql.Fields {
 		constants.GET_MOVIES: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
-				constants.PAGE:     &graphql.ArgumentConfig{Type: graphql.String},
+				constants.PAGE: &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "A",
+				},
 				constants.DIRECTOR: &graphql.ArgumentConfig{Type: graphql.String},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				page, ok := p.Args[constants.PAGE].(string)
-				if !ok {
-					page = "A"
-				}
+				page := p.Args[constants.PAGE].(string)
 				movies, _ := movieRepo.GetMoviesByPage(page)
 				director, ok := p.Args[constants.DIRECTOR]
 				if !ok {
@@ -122,7 +121,7 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username := p.Args[constants.USERNAME].(string)
-				_, member, err := membersRepo.GetMemberByUsername(username, false)
+				_, member, err := membersRepo.GetMemberByUsername(username, constants.NOT_CART)
 				if err != nil {
 					log.Fatalf("Failed to retrieve member from cloud. err: %s", err)
 				}
@@ -190,7 +189,14 @@ func GetGQLHandler() func(*gin.Context) {
 		Pretty: true,
 	})
 
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // your frontend origin
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})
+
 	return func(c *gin.Context) {
-		gqlHandler.ServeHTTP(c.Writer, c.Request)
+		corsHandler.Handler(gqlHandler).ServeHTTP(c.Writer, c.Request)
 	}
 }
