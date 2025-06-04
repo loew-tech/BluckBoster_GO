@@ -29,6 +29,8 @@ const (
 	DIRECTOR   = "director"
 	RATING     = "rating"
 	RENTED     = "rented"
+	SYNOPSIS   = "synopsis"
+	REVIEW     = "review"
 
 	// Cart
 	ADD    = "ADD"
@@ -49,4 +51,8 @@ const (
 	STAR        = "star"
 	STARREDIN   = "StarredIn"
 	STARREDWITH = "StarredWith"
+
+	// AWS
+	PAGINATE_KEY       = "paginate_key"
+	PAGINATE_KEY_INDEX = "paginate_key-index"
 )

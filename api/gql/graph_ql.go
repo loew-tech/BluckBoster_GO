@@ -1,7 +1,11 @@
 package gql
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"log"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -18,9 +22,12 @@ var movieRepo = repos.NewMovieRepo(endpoints.GetDynamoClient())
 var membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
 
 var PAGES = []string{"#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-var DIRECTED = make(map[string][]data.Movie)
-var STARRED_WITH = make(map[string][]string)
-var STARRED_IN = make(map[string][]data.Movie)
+var (
+	cacheMu      sync.RWMutex
+	DIRECTED     = make(map[string][]data.Movie)
+	STARRED_WITH = make(map[string][]string)
+	STARRED_IN   = make(map[string][]data.Movie)
+)
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MOVIE_TYPE,
@@ -28,7 +35,10 @@ var MovieType = graphql.NewObject(graphql.ObjectConfig{
 		constants.ID:        &graphql.Field{Type: graphql.String},
 		constants.INVENTORY: &graphql.Field{Type: graphql.Int},
 		constants.RATING:    &graphql.Field{Type: graphql.String},
+		constants.REVIEW:    &graphql.Field{Type: graphql.String},
 		constants.RENTED:    &graphql.Field{Type: graphql.Int},
+		constants.SYNOPSIS:  &graphql.Field{Type: graphql.String},
+		constants.TRIVIA:    &graphql.Field{Type: graphql.String},
 		constants.YEAR:      &graphql.Field{Type: graphql.String},
 		constants.CAST:      &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.DIRECTOR:  &graphql.Field{Type: graphql.String},
@@ -49,30 +59,6 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-func populateCaches() {
-	if len(DIRECTED) != 0 && len(STARRED_IN) != 0 && len(STARRED_WITH) != 0 {
-		return
-	}
-	for _, page := range PAGES {
-		movies, err := movieRepo.GetMoviesByPage(page)
-		if err != nil {
-			log.Fatalf("Err fetching movies for page %s. Err: %s", page, err)
-		}
-		for _, movie := range movies {
-			DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
-			for _, actor := range movie.Cast {
-				STARRED_IN[actor] = append(STARRED_IN[actor], movie)
-				for _, coStar := range movie.Cast {
-					if actor == coStar {
-						continue
-					}
-					STARRED_WITH[actor] = append(STARRED_WITH[actor], coStar)
-				}
-			}
-		}
-	}
-}
-
 func getFields() graphql.Fields {
 	return graphql.Fields{
 		constants.GET_MOVIES: &graphql.Field{
@@ -86,7 +72,16 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				page := p.Args[constants.PAGE].(string)
-				movies, _ := movieRepo.GetMoviesByPage(page)
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				movies, err := movieRepo.GetMoviesByPage(ctx, page)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve movies for page %s: %w", page, err)
+					log.Println(errWrap)
+					return nil, errWrap
+				}
 				director, ok := p.Args[constants.DIRECTOR]
 				if !ok {
 					return movies, nil
@@ -107,9 +102,15 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				movieID := p.Args[constants.MOVIE_ID].(string)
-				movie, _, err := movieRepo.GetMovieByID(movieID, constants.NOT_CART)
+				ctx, err := getContext(p)
 				if err != nil {
-					log.Fatalf("Failed to retrieve movie with ID %s from cloud. Err: %s\n", movieID, err)
+					return nil, err
+				}
+				movie, _, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve movie %s from cloud: %w", movieID, err)
+					log.Println(errWrap)
+					return nil, errWrap
 				}
 				return movie, nil
 			},
@@ -121,9 +122,15 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username := p.Args[constants.USERNAME].(string)
-				_, member, err := membersRepo.GetMemberByUsername(username, constants.NOT_CART)
+				ctx, err := getContext(p)
 				if err != nil {
-					log.Fatalf("Failed to retrieve member from cloud. err: %s", err)
+					return nil, err
+				}
+				member, err := membersRepo.GetMemberByUsername(ctx, username, constants.NOT_CART)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve member %s from cloud: %w", username, err)
+					log.Println(errWrap)
+					return nil, errWrap
 				}
 				return member, nil
 			},
@@ -135,8 +142,12 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
 				if len(DIRECTED) == 0 {
-					populateCaches()
+					populateCaches(ctx)
 				}
 				return DIRECTED[director], nil
 			},
@@ -148,8 +159,12 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
-				if len(STARRED_IN) == 0 {
-					populateCaches()
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				if len(DIRECTED) == 0 {
+					populateCaches(ctx)
 				}
 				return STARRED_IN[star], nil
 			},
@@ -161,8 +176,12 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
-				if len(STARRED_WITH) == 0 {
-					populateCaches()
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				if len(DIRECTED) == 0 {
+					populateCaches(ctx)
 				}
 				return STARRED_WITH[star], nil
 			},
@@ -181,6 +200,46 @@ func getSchema() graphql.Schema {
 	return schema
 }
 
+func getContext(p graphql.ResolveParams) (*gin.Context, error) {
+	ctx, ok := p.Context.Value(ginContextKey).(*gin.Context)
+	if !ok {
+		log.Println("Gin context not found in resolve params")
+		return nil, errors.New("missing Gin context")
+	}
+	return ctx, nil
+}
+
+func populateCaches(ctx context.Context) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	if len(DIRECTED) != 0 && len(STARRED_IN) != 0 && len(STARRED_WITH) != 0 {
+		return
+	}
+
+	for _, page := range PAGES {
+		movies, err := movieRepo.GetMoviesByPage(ctx, page)
+		if err != nil {
+			log.Printf("Err fetching movies for page %s. Err: %s\n", page, err)
+		}
+		for _, movie := range movies {
+			DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
+			for _, actor := range movie.Cast {
+				STARRED_IN[actor] = append(STARRED_IN[actor], movie)
+				for _, coStar := range movie.Cast {
+					if actor == coStar {
+						continue
+					}
+					STARRED_WITH[actor] = append(STARRED_WITH[actor], coStar)
+				}
+			}
+		}
+	}
+}
+
+type ginContextKeyType struct{}
+
+var ginContextKey = ginContextKeyType{}
+
 func GetGQLHandler() func(*gin.Context) {
 
 	schema := getSchema()
@@ -197,6 +256,8 @@ func GetGQLHandler() func(*gin.Context) {
 	})
 
 	return func(c *gin.Context) {
+		ctx := context.WithValue(c.Request.Context(), ginContextKey, c)
+		c.Request = c.Request.WithContext(ctx)
 		corsHandler.Handler(gqlHandler).ServeHTTP(c.Writer, c.Request)
 	}
 }
