@@ -19,7 +19,7 @@ func GetMoviesByPageEndpoint(c *gin.Context) {
 	if !strings.Contains(VALID_KEYS, pageKey) {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("No movies associated with page key: %s", pageKey)})
 	}
-	movies, err := movieRepo.GetMoviesByPage(pageKey)
+	movies, err := movieRepo.GetMoviesByPage(c, pageKey)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve movies"})
 	} else {
@@ -29,7 +29,7 @@ func GetMoviesByPageEndpoint(c *gin.Context) {
 
 func GetMovieEndpoint(c *gin.Context) {
 	movieID := c.Param("movieID")
-	movie, _, err := movieRepo.GetMovieByID(movieID, false)
+	movie, _, err := movieRepo.GetMovieByID(c, movieID, false)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to retrieve movieID %s", movieID)})
 	} else {
@@ -39,7 +39,7 @@ func GetMovieEndpoint(c *gin.Context) {
 
 func GetTriviaEndpoint(c *gin.Context) {
 	movieID := c.Param("movieID")
-	trivia, err := movieRepo.GetTrivia(movieID)
+	trivia, err := movieRepo.GetTrivia(c, movieID)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to retrieve movieID %s", movieID)})
 	} else {

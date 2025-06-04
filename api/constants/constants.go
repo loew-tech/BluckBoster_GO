@@ -29,6 +29,8 @@ const (
 	DIRECTOR   = "director"
 	RATING     = "rating"
 	RENTED     = "rented"
+	SYNOPSIS   = "synopsis"
+	REVIEW     = "review"
 
 	// Cart
 	ADD    = "ADD"
