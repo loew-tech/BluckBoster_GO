@@ -14,14 +14,14 @@ import (
 var memberRepo = repos.NewMembersRepo(GetDynamoClient())
 
 func GetMemberEndpoint(c *gin.Context) {
-	found, member, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.NOT_CART)
+	member, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.NOT_CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user"})
 	} else {
-		if found {
+		if member.Username != "" {
 			c.IndentedJSON(http.StatusOK, member)
 		} else {
-			c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to find user"})
+			c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to find user %s", c.Param("username"))})
 		}
 	}
 }
@@ -40,7 +40,7 @@ func MemberLoginEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	found, member, err := memberRepo.GetMemberByUsername(c, un.Username, constants.NOT_CART)
+	member, err := memberRepo.GetMemberByUsername(c, un.Username, constants.NOT_CART)
 	if err != nil {
 		c.IndentedJSON(
 			http.StatusNotFound,
@@ -48,18 +48,15 @@ func MemberLoginEndpoint(c *gin.Context) {
 		)
 		return
 	}
-	if found {
+	if member.Username != "" {
 		c.IndentedJSON(http.StatusOK, member)
 	} else {
-		c.IndentedJSON(
-			http.StatusNotFound,
-			gin.H{"msg": "Failed to find user"},
-		)
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to find user %s", c.Param("username"))})
 	}
 }
 
 func GetCartIDsEndpoint(c *gin.Context) {
-	_, user, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.CART)
+	user, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 	} else {
@@ -181,14 +178,15 @@ func checkoutReturnHelper(c *gin.Context, f func(context.Context, string, []stri
 }
 
 func GetCheckedOutMovies(c *gin.Context) {
-	_, user, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.CART)
+	user, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
+		return
 	}
 	_, movies, err := memberRepo.MovieRepo.GetMoviesByID(c, user.Checkedout, constants.CART)
 	if err != nil {
-		c.IndentedJSON(http.StatusBadGateway, gin.H{"msg": "Failed to retrieve movies from cloud"})
-	} else {
-		c.IndentedJSON(http.StatusOK, movies)
+		c.IndentedJSON(http.StatusBadGateway, gin.H{"msg": fmt.Sprintf("Failed to retrieve checkedout movies from cloud for user %s", user.Username)})
+		return
 	}
+	c.IndentedJSON(http.StatusOK, movies)
 }

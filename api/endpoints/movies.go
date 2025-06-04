@@ -18,6 +18,7 @@ func GetMoviesByPageEndpoint(c *gin.Context) {
 	pageKey := strings.ToUpper(c.DefaultQuery("page", "A"))
 	if !strings.Contains(VALID_KEYS, pageKey) {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("No movies associated with page key: %s", pageKey)})
+		return
 	}
 	movies, err := movieRepo.GetMoviesByPage(c, pageKey)
 	if err != nil {

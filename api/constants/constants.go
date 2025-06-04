@@ -51,4 +51,8 @@ const (
 	STAR        = "star"
 	STARREDIN   = "StarredIn"
 	STARREDWITH = "StarredWith"
+
+	// AWS
+	PAGINATE_KEY       = "paginate_key"
+	PAGINATE_KEY_INDEX = "paginate_key-index"
 )
