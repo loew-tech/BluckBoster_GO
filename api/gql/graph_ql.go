@@ -186,6 +186,38 @@ func getFields() graphql.Fields {
 				return STARRED_WITH[star], nil
 			},
 		},
+		constants.KEVING_BACON: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.STAR:  &graphql.ArgumentConfig{Type: graphql.String},
+				constants.DEPTH: &graphql.ArgumentConfig{Type: graphql.Int, DefaultValue: 1},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				star := p.Args[constants.STAR].(string)
+				depth := min(p.Args[constants.DEPTH].(int), 6)
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				if len(DIRECTED) == 0 {
+					populateCaches(ctx)
+				}
+
+				stars := make(map[string]bool)
+				movies := make(map[string]bool)
+				directors := make(map[string]bool)
+
+				bfs(star, stars, movies, directors, depth)
+
+				result := make([]string, 0, len(stars))
+				for s := range stars {
+					if s != star {
+						result = append(result, s)
+					}
+				}
+				return result, nil
+			},
+		},
 	}
 }
 
@@ -233,6 +265,35 @@ func populateCaches(ctx context.Context) {
 				}
 			}
 		}
+	}
+}
+
+func bfs(startStar string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) {
+	toSearch := []string{startStar}
+	exploredDepth := 0
+	for len(toSearch) > 0 && exploredDepth < depth {
+		exploredDepth++
+		nextSearch := make([]string, 0)
+		for _, star := range toSearch {
+			if _, found := stars[star]; found {
+				continue
+			}
+			stars[star] = true
+
+			for _, movie := range STARRED_IN[star] {
+				if _, found := movies[movie.ID]; !found {
+					movies[movie.ID] = true
+					for _, coStar := range movie.Cast {
+						if _, found := stars[coStar]; !found {
+							stars[coStar] = true
+							nextSearch = append(nextSearch, coStar)
+						}
+					}
+				}
+				directors[movie.Director] = true
+			}
+		}
+		toSearch = nextSearch
 	}
 }
 
