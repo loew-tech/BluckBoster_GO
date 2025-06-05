@@ -22,10 +22,12 @@ var movieRepo = repos.NewMovieRepo(endpoints.GetDynamoClient())
 var membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
 
 var PAGES = []string{"#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+
+// @TODO: move this into cache struct along with populateCaches
 var (
 	cacheMu      sync.RWMutex
 	DIRECTED     = make(map[string][]data.Movie)
-	STARRED_WITH = make(map[string][]string)
+	STARRED_WITH = make(map[string]map[string]bool)
 	STARRED_IN   = make(map[string][]data.Movie)
 )
 
@@ -183,7 +185,11 @@ func getFields() graphql.Fields {
 				if len(DIRECTED) == 0 {
 					populateCaches(ctx)
 				}
-				return STARRED_WITH[star], nil
+				stars := make([]string, 0)
+				for coStar := range STARRED_WITH[star] {
+					stars = append(stars, coStar)
+				}
+				return stars, nil
 			},
 		},
 		constants.KEVING_BACON: &graphql.Field{
@@ -199,7 +205,7 @@ func getFields() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				if len(DIRECTED) == 0 {
+				if len(DIRECTED) == 0 || len(STARRED_IN) == 0 || len(STARRED_WITH) == 0 {
 					populateCaches(ctx)
 				}
 
@@ -211,9 +217,7 @@ func getFields() graphql.Fields {
 
 				result := make([]string, 0, len(stars))
 				for s := range stars {
-					if s != star {
-						result = append(result, s)
-					}
+					result = append(result, s)
 				}
 				return result, nil
 			},
@@ -261,7 +265,10 @@ func populateCaches(ctx context.Context) {
 					if actor == coStar {
 						continue
 					}
-					STARRED_WITH[actor] = append(STARRED_WITH[actor], coStar)
+					if _, found := STARRED_WITH[actor]; !found {
+						STARRED_WITH[actor] = make(map[string]bool)
+					}
+					STARRED_WITH[actor][coStar] = true
 				}
 			}
 		}
@@ -275,9 +282,6 @@ func bfs(startStar string, stars map[string]bool, movies map[string]bool, direct
 		exploredDepth++
 		nextSearch := make([]string, 0)
 		for _, star := range toSearch {
-			if _, found := stars[star]; found {
-				continue
-			}
 			stars[star] = true
 
 			for _, movie := range STARRED_IN[star] {
