@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -20,17 +19,7 @@ import (
 
 var movieRepo = repos.NewMovieRepo(endpoints.GetDynamoClient())
 var membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
-
-var PAGES = []string{"#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-
-// @TODO: move this into cache struct along with populateCaches
-var (
-	cacheMu      sync.RWMutex
-	DIRECTED     = make(map[string][]data.Movie)
-	STARRED_WITH = make(map[string]map[string]bool)
-	STARRED_IN   = make(map[string][]data.Movie)
-	TOTAL_MOVIES = 0
-)
+var movieGraph = NewMovieGraph()
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MOVIE_TYPE,
@@ -158,14 +147,7 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
-				ctx, err := getContext(p)
-				if err != nil {
-					return nil, err
-				}
-				if len(DIRECTED) == 0 {
-					populateCaches(ctx)
-				}
-				return DIRECTED[director], nil
+				return movieGraph.GetDirectedMovies(director), nil
 			},
 		},
 		constants.STARREDIN: &graphql.Field{
@@ -175,14 +157,7 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
-				ctx, err := getContext(p)
-				if err != nil {
-					return nil, err
-				}
-				if len(DIRECTED) == 0 {
-					populateCaches(ctx)
-				}
-				return STARRED_IN[star], nil
+				return movieGraph.GetStarredIn(star), nil
 			},
 		},
 		constants.STARREDWITH: &graphql.Field{
@@ -192,18 +167,7 @@ func getFields() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
-				ctx, err := getContext(p)
-				if err != nil {
-					return nil, err
-				}
-				if len(DIRECTED) == 0 {
-					populateCaches(ctx)
-				}
-				stars := make([]string, 0)
-				for coStar := range STARRED_WITH[star] {
-					stars = append(stars, coStar)
-				}
-				return stars, nil
+				return movieGraph.GetStarredWith(star), nil
 			},
 		},
 		constants.KEVING_BACON: &graphql.Field{
@@ -215,51 +179,33 @@ func getFields() graphql.Fields {
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
 				depth := min(p.Args[constants.DEPTH].(int), 6)
-				ctx, err := getContext(p)
-				if err != nil {
-					return nil, err
-				}
-				if len(DIRECTED) == 0 || len(STARRED_IN) == 0 || len(STARRED_WITH) == 0 {
-					populateCaches(ctx)
-				}
 
-				stars := make(map[string]bool)
-				movies := make(map[string]bool)
-				directors := make(map[string]bool)
-
-				bfs(star, stars, movies, directors, depth)
-
-				starsSlice := make([]string, 0, len(stars))
-				for s := range stars {
-					starsSlice = append(starsSlice, s)
-				}
-
-				moviesSlice := make([]string, 0, len(movies))
-				for m := range movies {
-					moviesSlice = append(moviesSlice, m)
-				}
-
-				directorsSlice := make([]string, 0, len(directors))
-				for d := range directors {
-					directorsSlice = append(directorsSlice, d)
-				}
-
-				fmt.Println("starsSlice:", starsSlice)
-				fmt.Println("moviesSlice:", moviesSlice)
-				fmt.Println("directorsSlice:", directorsSlice)
+				starsSlice, moviesSlice, directorsSlice := KevinBacon(star, depth)
 
 				return map[string]interface{}{
 					constants.STAR:            star,
 					constants.STARS:           starsSlice,
-					constants.TOTAL_STARS:     len(STARRED_IN),
+					constants.TOTAL_STARS:     movieGraph.NumStars,
 					constants.MOVIES:          moviesSlice,
-					constants.TOTAL_MOVIES:    TOTAL_MOVIES,
+					constants.TOTAL_MOVIES:    movieGraph.NumMovies,
 					constants.DIRECTORS:       directorsSlice,
-					constants.TOTAL_DIRECTORS: len(DIRECTED),
+					constants.TOTAL_DIRECTORS: movieGraph.NumDirectors,
 				}, nil
 			},
 		},
 	}
+}
+
+func KevinBacon(star string, depth int) ([]string, []string, []string) {
+	stars := make(map[string]bool)
+	movies := make(map[string]bool)
+	directors := make(map[string]bool)
+	return KevinBaconInOut(star, stars, movies, directors, depth)
+}
+
+func KevinBaconInOut(star string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) ([]string, []string, []string) {
+	movieGraph.BFS(star, stars, movies, directors, depth)
+	return SetToList(stars), SetToList(movies), SetToList(directors)
 }
 
 func getSchema() graphql.Schema {
@@ -280,63 +226,6 @@ func getContext(p graphql.ResolveParams) (*gin.Context, error) {
 		return nil, errors.New("missing Gin context")
 	}
 	return ctx, nil
-}
-
-func populateCaches(ctx context.Context) {
-	cacheMu.Lock()
-	defer cacheMu.Unlock()
-	if len(DIRECTED) != 0 && len(STARRED_IN) != 0 && len(STARRED_WITH) != 0 {
-		return
-	}
-
-	for _, page := range PAGES {
-		movies, err := movieRepo.GetMoviesByPage(ctx, page)
-		if err != nil {
-			log.Printf("Err fetching movies for page %s. Err: %s\n", page, err)
-		}
-		for _, movie := range movies {
-			TOTAL_MOVIES++
-			DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
-			for _, actor := range movie.Cast {
-				STARRED_IN[actor] = append(STARRED_IN[actor], movie)
-				for _, coStar := range movie.Cast {
-					if actor == coStar {
-						continue
-					}
-					if _, found := STARRED_WITH[actor]; !found {
-						STARRED_WITH[actor] = make(map[string]bool)
-					}
-					STARRED_WITH[actor][coStar] = true
-				}
-			}
-		}
-	}
-}
-
-func bfs(startStar string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) {
-	toSearch := []string{startStar}
-	exploredDepth := 0
-	for len(toSearch) > 0 && exploredDepth < depth {
-		exploredDepth++
-		nextSearch := make([]string, 0)
-		for _, star := range toSearch {
-			stars[star] = true
-
-			for _, movie := range STARRED_IN[star] {
-				if _, found := movies[movie.ID]; !found {
-					movies[movie.ID] = true
-					for _, coStar := range movie.Cast {
-						if _, found := stars[coStar]; !found {
-							stars[coStar] = true
-							nextSearch = append(nextSearch, coStar)
-						}
-					}
-				}
-				directors[movie.Director] = true
-			}
-		}
-		toSearch = nextSearch
-	}
 }
 
 type ginContextKeyType struct{}
