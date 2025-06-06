@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
@@ -17,10 +18,13 @@ import (
 	"blockbuster/api/repos"
 )
 
-var movieRepo = repos.NewMovieRepo(endpoints.GetDynamoClient())
-var membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
-var movieGraph = NewMovieGraph()
-
+var (
+	initMovieGraphOnce  sync.Once
+	movieRepo           = repos.NewMovieRepo(endpoints.GetDynamoClient())
+	membersRepo         = repos.NewMembersRepo(endpoints.GetDynamoClient())
+	movieGraph          *MovieGraph
+	initMovieGraphError error
+)
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MOVIE_TYPE,
 	Fields: graphql.Fields{
@@ -43,8 +47,6 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 	Fields: graphql.Fields{
 		constants.USERNAME:    &graphql.Field{Type: graphql.String},
 		constants.FIRSTNAME:   &graphql.Field{Type: graphql.String},
-		constants.LASTNAME:    &graphql.Field{Type: graphql.String},
-		constants.CART_STRING: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.CHECKED_OUT: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.RENTED:      &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.TYPE:        &graphql.Field{Type: graphql.String},
@@ -233,6 +235,12 @@ type ginContextKeyType struct{}
 var ginContextKey = ginContextKeyType{}
 
 func GetGQLHandler() func(*gin.Context) {
+	initMovieGraphOnce.Do(func() {
+		movieGraph, initMovieGraphError = NewMovieGraph()
+		if initMovieGraphError != nil {
+			log.Printf("Errors encountered while populating movie graph. Some KevinBacon functionality will be affected. See above for individual errors. %v\n", initMovieGraphError)
+		}
+	})
 
 	schema := getSchema()
 	gqlHandler := handler.New(&handler.Config{

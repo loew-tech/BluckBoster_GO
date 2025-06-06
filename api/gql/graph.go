@@ -2,6 +2,7 @@ package gql
 
 import (
 	"context"
+	"errors"
 	"log"
 	"sync"
 
@@ -12,21 +13,22 @@ import (
 )
 
 type MovieGraph struct {
-	cacheMu      sync.RWMutex
 	directed     map[string][]data.Movie
 	starredWith  map[string]map[string]bool
 	starredIn    map[string][]data.Movie
 	NumDirectors int
 	NumStars     int
 	NumMovies    int
+	aveEdgeNum   int
 }
 
 var (
-	mg   *MovieGraph
-	once sync.Once
+	mg      *MovieGraph
+	once    sync.Once
+	initErr error
 )
 
-func NewMovieGraph() *MovieGraph {
+func NewMovieGraph() (*MovieGraph, error) {
 	once.Do(func() {
 		mg = &MovieGraph{
 			directed:     make(map[string][]data.Movie),
@@ -36,24 +38,21 @@ func NewMovieGraph() *MovieGraph {
 			NumStars:     0,
 			NumMovies:    0,
 		}
-		mg.populateCaches()
+		initErr = populateCaches(mg)
 	})
-	return mg
+	return mg, initErr
 }
 
-func (g *MovieGraph) populateCaches() {
-	g.cacheMu.Lock()
+func populateCaches(g *MovieGraph) error {
+	var errs []error
 	movieRepo := repos.NewMovieRepo(endpoints.GetDynamoClient())
 	ctx := context.TODO()
-	defer g.cacheMu.Unlock()
-	if len(g.directed) != 0 && len(g.starredIn) != 0 && len(g.starredWith) != 0 {
-		return
-	}
-
 	for _, page := range constants.PAGES {
 		movies, err := movieRepo.GetMoviesByPage(ctx, string(page))
 		if err != nil {
 			log.Printf("Err fetching movies for page %v. Err: %v\n", page, err)
+			errs = append(errs, err)
+			continue
 		}
 		for _, movie := range movies {
 			g.NumMovies++
@@ -71,17 +70,35 @@ func (g *MovieGraph) populateCaches() {
 				}
 			}
 		}
-		g.NumDirectors = len(g.directed)
-		g.NumStars = len(g.starredIn)
 	}
+	g.NumDirectors = len(g.directed)
+	g.NumStars = len(g.starredIn)
+	err := getAverageStarredWithSize(g)
+	if err != nil {
+		log.Printf("Error calculating average starredWith with size: %v\n", err)
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
-func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) {
+func getAverageStarredWithSize(g *MovieGraph) error {
+	total := 0
+	if g.NumStars == 0 {
+		return errors.New("no stars found in the graph")
+	}
+	for _, coStars := range g.starredWith {
+		total += len(coStars)
+	}
+	g.aveEdgeNum = total / g.NumStars
+	return nil
+}
+
+func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[string]bool, directors map[string]bool, maxDepth int) {
 	toSearch := []string{startStar}
-	exploredDepth := 0
-	for len(toSearch) > 0 && exploredDepth < depth {
-		exploredDepth++
-		nextSearch := make([]string, 0)
+	depth := 0
+	for len(toSearch) > 0 && depth < maxDepth {
+		depth++
+		nextSearch := make([]string, 0, g.NumStars)
 		for _, star := range toSearch {
 			stars[star] = true
 			for _, movie := range g.starredIn[star] {
@@ -107,7 +124,7 @@ func (g *MovieGraph) GetDirectedMovies(director string) []data.Movie {
 
 func (g *MovieGraph) GetDirectedActors(director string) []string {
 	actors := make(map[string]bool)
-	actorList := make([]string, 0, len(actors))
+	var actorList []string
 	for _, movie := range g.directed[director] {
 		for _, actor := range movie.Cast {
 			if _, found := actors[actor]; found {
@@ -125,7 +142,7 @@ func (g *MovieGraph) GetStarredIn(star string) []data.Movie {
 }
 
 func (g *MovieGraph) GetStarredWith(star string) []string {
-	coStars := make([]string, 0)
+	var coStars []string
 	for coStar := range g.starredWith[star] {
 		coStars = append(coStars, coStar)
 	}
