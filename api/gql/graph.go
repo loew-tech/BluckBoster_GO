@@ -21,17 +21,24 @@ type MovieGraph struct {
 	NumMovies    int
 }
 
+var (
+	mg   *MovieGraph
+	once sync.Once
+)
+
 func NewMovieGraph() *MovieGraph {
-	m := &MovieGraph{
-		directed:     make(map[string][]data.Movie),
-		starredWith:  make(map[string]map[string]bool),
-		starredIn:    make(map[string][]data.Movie),
-		NumDirectors: 0,
-		NumStars:     0,
-		NumMovies:    0,
-	}
-	m.populateCaches()
-	return m
+	once.Do(func() {
+		mg = &MovieGraph{
+			directed:     make(map[string][]data.Movie),
+			starredWith:  make(map[string]map[string]bool),
+			starredIn:    make(map[string][]data.Movie),
+			NumDirectors: 0,
+			NumStars:     0,
+			NumMovies:    0,
+		}
+		mg.populateCaches()
+	})
+	return mg
 }
 
 func (g *MovieGraph) populateCaches() {
@@ -46,7 +53,7 @@ func (g *MovieGraph) populateCaches() {
 	for _, page := range constants.PAGES {
 		movies, err := movieRepo.GetMoviesByPage(ctx, string(page))
 		if err != nil {
-			log.Printf("Err fetching movies for page %s. Err: %s\n", page, err)
+			log.Printf("Err fetching movies for page %v. Err: %v\n", page, err)
 		}
 		for _, movie := range movies {
 			g.NumMovies++
