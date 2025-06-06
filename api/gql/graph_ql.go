@@ -29,6 +29,7 @@ var (
 	DIRECTED     = make(map[string][]data.Movie)
 	STARRED_WITH = make(map[string]map[string]bool)
 	STARRED_IN   = make(map[string][]data.Movie)
+	TOTAL_MOVIES = 0
 )
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
@@ -58,6 +59,19 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 		constants.CHECKED_OUT: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.RENTED:      &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.TYPE:        &graphql.Field{Type: graphql.String},
+	},
+})
+
+var KevingBaconType = graphql.NewObject(graphql.ObjectConfig{
+	Name: constants.KEVING_BACON_TYPE,
+	Fields: graphql.Fields{
+		constants.STAR:            &graphql.Field{Type: graphql.String},
+		constants.STARS:           &graphql.Field{Type: graphql.NewList(graphql.String)},
+		constants.TOTAL_STARS:     &graphql.Field{Type: graphql.Int},
+		constants.MOVIES:          &graphql.Field{Type: graphql.NewList(graphql.String)},
+		constants.TOTAL_MOVIES:    &graphql.Field{Type: graphql.Int},
+		constants.DIRECTORS:       &graphql.Field{Type: graphql.NewList(graphql.String)},
+		constants.TOTAL_DIRECTORS: &graphql.Field{Type: graphql.Int},
 	},
 })
 
@@ -193,7 +207,7 @@ func getFields() graphql.Fields {
 			},
 		},
 		constants.KEVING_BACON: &graphql.Field{
-			Type: graphql.NewList(graphql.String),
+			Type: KevingBaconType,
 			Args: graphql.FieldConfigArgument{
 				constants.STAR:  &graphql.ArgumentConfig{Type: graphql.String},
 				constants.DEPTH: &graphql.ArgumentConfig{Type: graphql.Int, DefaultValue: 1},
@@ -215,11 +229,34 @@ func getFields() graphql.Fields {
 
 				bfs(star, stars, movies, directors, depth)
 
-				result := make([]string, 0, len(stars))
+				starsSlice := make([]string, 0, len(stars))
 				for s := range stars {
-					result = append(result, s)
+					starsSlice = append(starsSlice, s)
 				}
-				return result, nil
+
+				moviesSlice := make([]string, 0, len(movies))
+				for m := range movies {
+					moviesSlice = append(moviesSlice, m)
+				}
+
+				directorsSlice := make([]string, 0, len(directors))
+				for d := range directors {
+					directorsSlice = append(directorsSlice, d)
+				}
+
+				fmt.Println("starsSlice:", starsSlice)
+				fmt.Println("moviesSlice:", moviesSlice)
+				fmt.Println("directorsSlice:", directorsSlice)
+
+				return map[string]interface{}{
+					constants.STAR:            star,
+					constants.STARS:           starsSlice,
+					constants.TOTAL_STARS:     len(STARRED_IN),
+					constants.MOVIES:          moviesSlice,
+					constants.TOTAL_MOVIES:    TOTAL_MOVIES,
+					constants.DIRECTORS:       directorsSlice,
+					constants.TOTAL_DIRECTORS: len(DIRECTED),
+				}, nil
 			},
 		},
 	}
@@ -258,6 +295,7 @@ func populateCaches(ctx context.Context) {
 			log.Printf("Err fetching movies for page %s. Err: %s\n", page, err)
 		}
 		for _, movie := range movies {
+			TOTAL_MOVIES++
 			DIRECTED[movie.Director] = append(DIRECTED[movie.Director], movie)
 			for _, actor := range movie.Cast {
 				STARRED_IN[actor] = append(STARRED_IN[actor], movie)
