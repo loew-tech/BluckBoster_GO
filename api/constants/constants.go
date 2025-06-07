@@ -42,17 +42,26 @@ const (
 	NOT_CHECKOUT = false
 
 	// GraphQL
-	MOVIE_ID    = "movieID"
-	PAGE        = "page"
-	GET_MOVIES  = "GetMovies"
-	GET_MOVIE   = "GetMovie"
-	GET_MEMBER  = "GetMember"
-	DIRECTED_BY = "DirectedBy"
-	STAR        = "star"
-	STARREDIN   = "StarredIn"
-	STARREDWITH = "StarredWith"
+	MOVIE_ID          = "movieID"
+	PAGE              = "page"
+	GET_MOVIES        = "GetMovies"
+	GET_MOVIE         = "GetMovie"
+	GET_MEMBER        = "GetMember"
+	DIRECTED_BY       = "DirectedBy"
+	DIRECTORS         = "directors"
+	STAR              = "star"
+	STARS             = "stars"
+	STARREDIN         = "StarredIn"
+	STARREDWITH       = "StarredWith"
+	KEVING_BACON      = "KevinBacon"
+	KEVING_BACON_TYPE = "KevinBaconType"
+	DEPTH             = "depth"
+	TOTAL_DIRECTORS   = "total_directors"
+	TOTAL_MOVIES      = "total_movies"
+	TOTAL_STARS       = "total_stars"
 
 	// AWS
 	PAGINATE_KEY       = "paginate_key"
 	PAGINATE_KEY_INDEX = "paginate_key-index"
+	PAGES              = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
