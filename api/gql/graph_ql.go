@@ -47,7 +47,9 @@ var MemberType = graphql.NewObject(graphql.ObjectConfig{
 	Fields: graphql.Fields{
 		constants.USERNAME:    &graphql.Field{Type: graphql.String},
 		constants.FIRSTNAME:   &graphql.Field{Type: graphql.String},
+		constants.LASTNAME:    &graphql.Field{Type: graphql.String},
 		constants.CHECKED_OUT: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
+		constants.CART_STRING: &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.RENTED:      &graphql.Field{Type: &graphql.List{OfType: graphql.String}},
 		constants.TYPE:        &graphql.Field{Type: graphql.String},
 	},
@@ -66,6 +68,10 @@ var KevingBaconType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var starArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
+var movieIDArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
+var directorArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
+
 func getFields() graphql.Fields {
 	return graphql.Fields{
 		constants.GET_MOVIES: &graphql.Field{
@@ -75,7 +81,7 @@ func getFields() graphql.Fields {
 					Type:         graphql.String,
 					DefaultValue: "A",
 				},
-				constants.DIRECTOR: &graphql.ArgumentConfig{Type: graphql.String},
+				constants.DIRECTOR: directorArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				page := p.Args[constants.PAGE].(string)
@@ -90,7 +96,7 @@ func getFields() graphql.Fields {
 					return nil, errWrap
 				}
 				director, ok := p.Args[constants.DIRECTOR]
-				if !ok {
+				if !ok || director == "" {
 					return movies, nil
 				}
 				moviesDirected := make([]data.Movie, 0)
@@ -105,7 +111,7 @@ func getFields() graphql.Fields {
 		constants.GET_MOVIE: &graphql.Field{
 			Type: MovieType,
 			Args: graphql.FieldConfigArgument{
-				constants.MOVIE_ID: &graphql.ArgumentConfig{Type: graphql.ID},
+				constants.MOVIE_ID: movieIDArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				movieID := p.Args[constants.MOVIE_ID].(string)
@@ -128,7 +134,12 @@ func getFields() graphql.Fields {
 				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				username := p.Args[constants.USERNAME].(string)
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for getMember query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
 				ctx, err := getContext(p)
 				if err != nil {
 					return nil, err
@@ -145,7 +156,7 @@ func getFields() graphql.Fields {
 		constants.DIRECTED_BY: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
-				constants.DIRECTOR: &graphql.ArgumentConfig{Type: graphql.ID},
+				constants.DIRECTOR: directorArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
@@ -155,42 +166,71 @@ func getFields() graphql.Fields {
 		constants.STARREDIN: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
-				constants.STAR: &graphql.ArgumentConfig{Type: graphql.String},
+				constants.STAR: starArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
+				if star == "" {
+					msg := "star argument is required for starredIn query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
 				return movieGraph.GetStarredIn(star), nil
 			},
 		},
 		constants.STARREDWITH: &graphql.Field{
 			Type: graphql.NewList(graphql.String),
 			Args: graphql.FieldConfigArgument{
-				constants.STAR: &graphql.ArgumentConfig{Type: graphql.String},
+				constants.STAR: starArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
+				if star == "" {
+					msg := "star argument is required for starredWith query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
 				return movieGraph.GetStarredWith(star), nil
 			},
 		},
 		constants.KEVING_BACON: &graphql.Field{
 			Type: KevingBaconType,
 			Args: graphql.FieldConfigArgument{
-				constants.STAR:  &graphql.ArgumentConfig{Type: graphql.String},
-				constants.DEPTH: &graphql.ArgumentConfig{Type: graphql.Int, DefaultValue: 1},
+				constants.STAR:     starArg,
+				constants.MOVIE:    movieIDArg,
+				constants.DIRECTOR: directorArg,
+				constants.DEPTH:    &graphql.ArgumentConfig{Type: graphql.Int, DefaultValue: 1},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				star := p.Args[constants.STAR].(string)
-				depth := min(p.Args[constants.DEPTH].(int), 6)
+				movieID := p.Args[constants.MOVIE].(string)
+				director := p.Args[constants.DIRECTOR].(string)
+				toSearch := buildToSearch(p, star, movieID, director)
+				if len(toSearch) == 0 {
+					msg := "the KevinBacon search requires at least one star, movie, or director"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
 
-				starsSlice, moviesSlice, directorsSlice := KevinBacon(star, depth)
+				depth := min(p.Args[constants.DEPTH].(int), 6)
+				stars := make(map[string]bool)
+				movies := make(map[string]bool)
+				directors := make(map[string]bool)
+				for _, s := range toSearch {
+					if _, found := stars[s]; s != star && !found {
+						stars[s] = true
+						continue
+					}
+					KevinBaconInOut(s, stars, movies, directors, depth)
+				}
 
 				return map[string]interface{}{
 					constants.STAR:            star,
-					constants.STARS:           starsSlice,
+					constants.STARS:           SetToList(stars),
 					constants.TOTAL_STARS:     movieGraph.NumStars,
-					constants.MOVIES:          moviesSlice,
+					constants.MOVIES:          SetToList(movies),
 					constants.TOTAL_MOVIES:    movieGraph.NumMovies,
-					constants.DIRECTORS:       directorsSlice,
+					constants.DIRECTORS:       SetToList(directors),
 					constants.TOTAL_DIRECTORS: movieGraph.NumDirectors,
 				}, nil
 			},
@@ -198,16 +238,40 @@ func getFields() graphql.Fields {
 	}
 }
 
+func buildToSearch(p graphql.ResolveParams, star string, movieID string, director string) []string {
+	var toSearch []string
+	if star != "" {
+		toSearch = append(toSearch, star)
+	}
+	if director != "" {
+		toSearch = append(toSearch, movieGraph.GetDirectedActors(director)...)
+	}
+	if movieID != "" {
+		ctx, err := getContext(p)
+		if err != nil {
+			log.Printf("failed to get context: %v", err)
+			return toSearch
+		}
+		movie, _, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
+		if err != nil {
+			log.Printf("failed to retrieve movie %s from cloud: %v", movieID, err)
+			return toSearch
+		}
+		toSearch = append(toSearch, movie.Cast...)
+	}
+	return toSearch
+}
+
 func KevinBacon(star string, depth int) ([]string, []string, []string) {
 	stars := make(map[string]bool)
 	movies := make(map[string]bool)
 	directors := make(map[string]bool)
-	return KevinBaconInOut(star, stars, movies, directors, depth)
+	KevinBaconInOut(star, stars, movies, directors, depth)
+	return SetToList(stars), SetToList(movies), SetToList(directors)
 }
 
-func KevinBaconInOut(star string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) ([]string, []string, []string) {
+func KevinBaconInOut(star string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) {
 	movieGraph.BFS(star, stars, movies, directors, depth)
-	return SetToList(stars), SetToList(movies), SetToList(directors)
 }
 
 func getSchema() graphql.Schema {
@@ -224,21 +288,22 @@ func getSchema() graphql.Schema {
 func getContext(p graphql.ResolveParams) (*gin.Context, error) {
 	ctx, ok := p.Context.Value(ginContextKey).(*gin.Context)
 	if !ok {
-		log.Println("Gin context not found in resolve params")
-		return nil, errors.New("missing Gin context")
+		msg := "gin context not found in resolve params"
+		log.Println(msg)
+		return nil, errors.New(msg)
 	}
 	return ctx, nil
 }
 
-type ginContextKeyType struct{}
+type contextKeyGin struct{}
 
-var ginContextKey = ginContextKeyType{}
+var ginContextKey = contextKeyGin{}
 
 func GetGQLHandler() func(*gin.Context) {
 	initMovieGraphOnce.Do(func() {
 		movieGraph, initMovieGraphError = NewMovieGraph()
 		if initMovieGraphError != nil {
-			log.Printf("Errors encountered while populating movie graph. Some KevinBacon functionality will be affected. See above for individual errors. %v\n", initMovieGraphError)
+			log.Printf("errors encountered while populating movie graph. Some KevinBacon functionality will be affected. See above for individual errors. %v\n", initMovieGraphError)
 		}
 	})
 
@@ -249,7 +314,7 @@ func GetGQLHandler() func(*gin.Context) {
 	})
 
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // your frontend origin
+		AllowedOrigins:   []string{"http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
