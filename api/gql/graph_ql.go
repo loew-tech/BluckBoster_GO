@@ -19,12 +19,11 @@ import (
 )
 
 var (
-	initMovieGraphOnce  sync.Once
-	movieRepo           = repos.NewMovieRepo(endpoints.GetDynamoClient())
-	membersRepo         = repos.NewMembersRepo(endpoints.GetDynamoClient())
-	movieGraph          *MovieGraph
-	initMovieGraphError error
+	movieRepo   = repos.NewMovieRepo(endpoints.GetDynamoClient())
+	membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
+	movieGraph  *MovieGraph
 )
+
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
 	Name: constants.MOVIE_TYPE,
 	Fields: graphql.Fields{
@@ -297,7 +296,11 @@ func getContext(p graphql.ResolveParams) (*gin.Context, error) {
 
 type contextKeyGin struct{}
 
-var ginContextKey = contextKeyGin{}
+var (
+	ginContextKey       = contextKeyGin{}
+	initMovieGraphOnce  sync.Once
+	initMovieGraphError error
+)
 
 func GetGQLHandler() func(*gin.Context) {
 	initMovieGraphOnce.Do(func() {
