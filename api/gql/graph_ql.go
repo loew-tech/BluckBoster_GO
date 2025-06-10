@@ -71,7 +71,7 @@ var starArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 var movieIDArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 var directorArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 
-func getFields() graphql.Fields {
+func getQueries() graphql.Fields {
 	return graphql.Fields{
 		constants.GET_MOVIES: &graphql.Field{
 			Type: graphql.NewList(MovieType),
@@ -273,10 +273,54 @@ func KevinBaconInOut(star string, stars map[string]bool, movies map[string]bool,
 	movieGraph.BFS(star, stars, movies, directors, depth)
 }
 
+func getMutations() graphql.Fields {
+	return graphql.Fields{
+		constants.RETURN_RENTALS: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME:  &graphql.ArgumentConfig{Type: graphql.String},
+				constants.MOVIE_IDS: &graphql.ArgumentConfig{Type: graphql.NewList(graphql.String)},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for returnRentals mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				movieIDs, ok := p.Args[constants.MOVIE_IDS].([]interface{})
+				if !ok || len(movieIDs) == 0 {
+					msg := "movieIds argument is required for returnRentals mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ids := make([]string, len(movieIDs))
+				for i, v := range movieIDs {
+					ids[i], _ = v.(string)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				messages, _, err := membersRepo.Return(ctx, username, ids)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to return rentals for user %s: %w", username, err)
+					log.Println(errWrap)
+					return nil, errWrap
+				}
+				return messages, nil
+			},
+		},
+	}
+}
+
 func getSchema() graphql.Schema {
-	fields := getFields()
-	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: fields}
-	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
+	queryFiels := getQueries()
+	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: queryFiels}
+	mutationFields := getMutations()
+	rootMutation := graphql.ObjectConfig{Name: "RootMutation", Fields: mutationFields}
+
+	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery), Mutation: graphql.NewObject(rootMutation)}
 	schema, err := graphql.NewSchema(schemaConfig)
 	if err != nil {
 		log.Fatalf("failed to create new schema, error: %v", err)

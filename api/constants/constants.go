@@ -43,9 +43,12 @@ const (
 
 	// GraphQL
 	MOVIE_ID          = "movieID"
+	MOVIE_IDS         = "movieIDs"
 	PAGE              = "page"
 	GET_MOVIES        = "GetMovies"
 	GET_MOVIE         = "GetMovie"
+	GET_CART          = "GetCart"
+	RETURN_RENTALS    = "ReturnRentals"
 	GET_MEMBER        = "GetMember"
 	DIRECTED_BY       = "DirectedBy"
 	DIRECTORS         = "directors"
