@@ -19,7 +19,7 @@ type Movie struct {
 	Title     string   `json:"title" dynamodbav:"title"`
 	Cast      []string `json:"cast" dynamodbav:"cast"`
 	Director  string   `json:"director" dynamodbav:"director"`
-	Inventory int      `json:"inventory" dynamodbav:"inventory"`
+	Inventory int      `json:"inventory,omitempty" dynamodbav:"inventory,omitempty"`
 	Rented    int      `json:"rented,omitempty" dynamodbav:"rented,omitempty"`
 	Rating    string   `json:"rating,omitempty" dynamodbav:"rating,omitempty"`
 	Review    string   `json:"review,omitempty" dynamodbav:"review,omitempty"`

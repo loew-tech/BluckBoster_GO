@@ -30,7 +30,19 @@ func NewMovieRepo(client *dynamodb.Client) *MovieRepo {
 	}
 }
 
-func (r *MovieRepo) GetMoviesByPage(ctx context.Context, page string) ([]data.Movie, error) {
+func (r *MovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page string) ([]data.Movie, error) {
+	fmt.Print("\n==========\n\n")
+	var projectionExpr *string
+	expr := "#i, title, #c, director, inventory, rented, year"
+	exprAttrNames := map[string]string{
+		"#i": constants.ID,
+		"#c": constants.CAST,
+	}
+	if forGraph {
+		expr = "#i, title, #c, director"
+	}
+	projectionExpr = &expr
+
 	input := &dynamodb.QueryInput{
 		TableName: &r.tableName,
 		IndexName: aws.String(constants.PAGINATE_KEY_INDEX),
@@ -42,6 +54,8 @@ func (r *MovieRepo) GetMoviesByPage(ctx context.Context, page string) ([]data.Mo
 				},
 			},
 		},
+		ProjectionExpression:     projectionExpr,
+		ExpressionAttributeNames: exprAttrNames,
 	}
 
 	response, err := r.client.Query(ctx, input)
@@ -57,6 +71,10 @@ func (r *MovieRepo) GetMoviesByPage(ctx context.Context, page string) ([]data.Mo
 		errWrap := fmt.Errorf("err unmarshalling movies from query response: %w", err)
 		log.Print(errWrap)
 		return nil, errWrap
+	}
+
+	for _, movie := range movies {
+		fmt.Println("**", movie.ID)
 	}
 
 	return movies, nil
