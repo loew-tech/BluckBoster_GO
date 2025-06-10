@@ -183,7 +183,7 @@ func GetCheckedOutMovies(c *gin.Context) {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user cart"})
 		return
 	}
-	_, movies, err := memberRepo.MovieRepo.GetMoviesByID(c, user.Checkedout, constants.CART)
+	movies, err := memberRepo.MovieRepo.GetMoviesByID(c, user.Checkedout, constants.CART)
 	if err != nil {
 		c.IndentedJSON(http.StatusBadGateway, gin.H{"msg": fmt.Sprintf("Failed to retrieve checkedout movies from cloud for user %s", user.Username)})
 		return

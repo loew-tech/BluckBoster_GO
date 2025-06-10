@@ -31,7 +31,7 @@ func GetMoviesByPageEndpoint(c *gin.Context) {
 
 func GetMovieEndpoint(c *gin.Context) {
 	movieID := c.Param("movieID")
-	movie, _, err := movieRepo.GetMovieByID(c, movieID, false)
+	movie, err := movieRepo.GetMovieByID(c, movieID, false)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to retrieve movieID %s", movieID)})
 	} else {
