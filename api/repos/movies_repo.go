@@ -30,7 +30,20 @@ func NewMovieRepo(client *dynamodb.Client) *MovieRepo {
 	}
 }
 
-func (r *MovieRepo) GetMoviesByPage(ctx context.Context, page string) ([]data.Movie, error) {
+func (r *MovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page string) ([]data.Movie, error) {
+	var projectionExpr *string
+	expr := "#i, title, #c, director"
+
+	exprAttrNames := map[string]string{
+		"#i": constants.ID,
+		"#c": constants.CAST,
+	}
+	if !forGraph {
+		expr = fmt.Sprintf("%s, inventory, rented, #y", expr)
+		exprAttrNames["#y"] = constants.YEAR
+	}
+	projectionExpr = &expr
+
 	input := &dynamodb.QueryInput{
 		TableName: &r.tableName,
 		IndexName: aws.String(constants.PAGINATE_KEY_INDEX),
@@ -42,6 +55,8 @@ func (r *MovieRepo) GetMoviesByPage(ctx context.Context, page string) ([]data.Mo
 				},
 			},
 		},
+		ProjectionExpression:     projectionExpr,
+		ExpressionAttributeNames: exprAttrNames,
 	}
 
 	response, err := r.client.Query(ctx, input)
@@ -62,18 +77,18 @@ func (r *MovieRepo) GetMoviesByPage(ctx context.Context, page string) ([]data.Mo
 	return movies, nil
 }
 
-func (r *MovieRepo) GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, data.CartMovie, error) {
+func (r *MovieRepo) GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, error) {
 	input, err := r.getMovieByIDInput(movieID, forCart)
 	if input == nil || err != nil {
 		errWrap := fmt.Errorf("failed to create GetItemInput for movieID %s: %w", movieID, err)
 		log.Print(errWrap)
-		return data.Movie{}, data.CartMovie{}, errWrap
+		return data.Movie{}, errWrap
 	}
 
 	result, err := r.client.GetItem(ctx, input)
 	if err != nil {
 		log.Printf("Err fetching movies from cloud: %s\n", err)
-		return data.Movie{}, data.CartMovie{}, err
+		return data.Movie{}, err
 	}
 	return r.getMovieByIDResult(result, forCart)
 }
@@ -96,45 +111,41 @@ func (r *MovieRepo) getMovieByIDInput(movieID string, forCart bool) (*dynamodb.G
 	}, nil
 }
 
-func (r *MovieRepo) getMovieByIDResult(result *dynamodb.GetItemOutput, forCart bool) (data.Movie, data.CartMovie, error) {
+func (r *MovieRepo) getMovieByIDResult(result *dynamodb.GetItemOutput, forCart bool) (data.Movie, error) {
 	if result.Item == nil {
-		return data.Movie{}, data.CartMovie{}, errors.New("movie not found")
+		return data.Movie{}, errors.New("movie not found")
 	}
 
 	var movie data.Movie
-	var cartMovie data.CartMovie
-	var err error
-	if forCart {
-		err = attributevalue.UnmarshalMap(result.Item, &cartMovie)
-	} else {
-		err = attributevalue.UnmarshalMap(result.Item, &movie)
-	}
+	err := attributevalue.UnmarshalMap(result.Item, &movie)
 	if err != nil {
 		log.Printf("Failed to unmarshal movie: %s", err)
-		return data.Movie{}, data.CartMovie{}, err
+		return data.Movie{}, err
 	}
-	return movie, cartMovie, nil
+	return movie, nil
 }
 
-func (r *MovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, []data.CartMovie, error) {
+func (r *MovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, error) {
 	if len(movieIDs) == 0 {
-		return make([]data.Movie, 0), make([]data.CartMovie, 0), nil
+		return make([]data.Movie, 0), nil
 	}
 	keys := make([]map[string]types.AttributeValue, 0, len(movieIDs))
 	for _, mid := range movieIDs {
 		keys = append(keys, map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: mid}})
 	}
-	expr := "#i, title, inventory"
-	exprAttrNames := map[string]string{"#i": "id"}
-	if !forCart {
-		expr = fmt.Sprintf("%s, #c, director, rented, rating, review, synopsis, #y", expr)
-		exprAttrNames["#c"], exprAttrNames["#y"] = constants.CAST, constants.YEAR
+	var projectionExpr *string
+	var exprAttrNames map[string]string
+	if forCart {
+		expr := "#i, title, inventory"
+		projectionExpr = &expr
+		exprAttrNames = make(map[string]string)
+		exprAttrNames["#i"] = constants.ID
 	}
 	input := &dynamodb.BatchGetItemInput{
 		RequestItems: map[string]types.KeysAndAttributes{
 			r.tableName: {
 				Keys:                     keys,
-				ProjectionExpression:     aws.String(expr),
+				ProjectionExpression:     projectionExpr,
 				ExpressionAttributeNames: exprAttrNames,
 			},
 		},
@@ -143,30 +154,19 @@ func (r *MovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, forCar
 	result, err := r.client.BatchGetItem(ctx, input)
 	if err != nil {
 		log.Printf("Err fetching movies from cloud: %s\n", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	var movies []data.Movie
-	var cartMovies []data.CartMovie
-
 	for _, v := range result.Responses {
-		if forCart {
-			var batch []data.CartMovie
-			if err = attributevalue.UnmarshalListOfMaps(v, &batch); err != nil {
-				log.Printf("Got error unmarshalling cart movies: %s", err)
-				return nil, nil, err
-			}
-			cartMovies = append(cartMovies, batch...)
-		} else {
-			var batch []data.Movie
-			if err = attributevalue.UnmarshalListOfMaps(v, &batch); err != nil {
-				log.Printf("Got error unmarshalling movies: %s", err)
-				return nil, nil, err
-			}
-			movies = append(movies, batch...)
+		var batch []data.Movie
+		if err = attributevalue.UnmarshalListOfMaps(v, &batch); err != nil {
+			log.Printf("Got error unmarshalling movies: %s", err)
+			return nil, err
 		}
+		movies = append(movies, batch...)
 	}
-	return movies, cartMovies, nil
+	return movies, nil
 }
 
 func (r *MovieRepo) Rent(ctx context.Context, movie data.Movie) (bool, error) {

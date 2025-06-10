@@ -17,21 +17,15 @@ type Member struct {
 type Movie struct {
 	ID        string   `json:"id" dynamodbav:"id"`
 	Title     string   `json:"title" dynamodbav:"title"`
-	Cast      []string `json:"cast" dynamodbav:"cast"`
-	Director  string   `json:"director" dynamodbav:"director"`
-	Inventory int      `json:"inventory" dynamodbav:"inventory"`
+	Cast      []string `json:"cast,omitempty" dynamodbav:"cast,omitempty"`
+	Director  string   `json:"director,omitempty" dynamodbav:"director,omitempty"`
+	Inventory int      `json:"inventory,omitempty" dynamodbav:"inventory,omitempty"`
 	Rented    int      `json:"rented,omitempty" dynamodbav:"rented,omitempty"`
 	Rating    string   `json:"rating,omitempty" dynamodbav:"rating,omitempty"`
 	Review    string   `json:"review,omitempty" dynamodbav:"review,omitempty"`
 	Synopsis  string   `json:"synopsis,omitempty" dynamodbav:"synopsis,omitempty"`
 	Trivia    string   `json:"trivia,omitempty" dynamodbav:"trivia,omitempty"`
-	Year      string   `json:"year" dynamodbav:"year"`
-}
-
-type CartMovie struct {
-	ID        string `json:"id" dynamodbav:"id"`
-	Title     string `json:"title" dynamodbav:"title"`
-	Invnetory int    `json:"inventory" dynamodbav:"inventory"`
+	Year      string   `json:"year,omitempty" dynamodbav:"year,omitempty"`
 }
 
 type MovieTrivia struct {

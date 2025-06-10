@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"blockbuster/api/constants"
 	repos "blockbuster/api/repos"
 )
 
@@ -20,7 +21,7 @@ func GetMoviesByPageEndpoint(c *gin.Context) {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("No movies associated with page key: %s", pageKey)})
 		return
 	}
-	movies, err := movieRepo.GetMoviesByPage(c, pageKey)
+	movies, err := movieRepo.GetMoviesByPage(c, constants.NOT_FOR_GRAPH, pageKey)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve movies"})
 	} else {
@@ -30,7 +31,7 @@ func GetMoviesByPageEndpoint(c *gin.Context) {
 
 func GetMovieEndpoint(c *gin.Context) {
 	movieID := c.Param("movieID")
-	movie, _, err := movieRepo.GetMovieByID(c, movieID, false)
+	movie, err := movieRepo.GetMovieByID(c, movieID, false)
 	if err != nil {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Failed to retrieve movieID %s", movieID)})
 	} else {

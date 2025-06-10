@@ -68,16 +68,16 @@ func (r *MemberRepo) GetMemberByUsername(ctx context.Context, username string, c
 	return member, nil
 }
 
-func (r *MemberRepo) GetCartMovies(ctx context.Context, username string) ([]data.CartMovie, error) {
+func (r *MemberRepo) GetCartMovies(ctx context.Context, username string) ([]data.Movie, error) {
 	user, err := r.GetMemberByUsername(ctx, username, constants.CART)
 	if err != nil {
 		log.Printf("Err in fetching cart movie ids for %s\n", username)
 		return nil, err
 	}
 
-	var movies []data.CartMovie
+	var movies []data.Movie
 	if 0 < len(user.Cart) {
-		_, movies, err = r.MovieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
+		movies, err = r.MovieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
 		if err != nil {
 			errWrap := fmt.Errorf("failed to get movies in cart. %w", err)
 			log.Println(errWrap)
@@ -142,7 +142,7 @@ func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []s
 		return nil, rented, nil
 	}
 
-	movies, _, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
+	movies, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
 		errWrap := fmt.Errorf("failed to retrieve movies from cloud: %w", err)
 		log.Println(errWrap)
@@ -200,7 +200,7 @@ func (r *MemberRepo) checkoutMovie(ctx context.Context, user data.Member, movie 
 }
 
 func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
-	movies, _, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
+	movies, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
 		errWrap := fmt.Errorf("err returning movies. Failed to fetch movies from cloud: %w", err)
 		log.Println(errWrap)

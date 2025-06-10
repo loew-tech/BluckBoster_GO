@@ -59,6 +59,8 @@ const (
 	TOTAL_DIRECTORS   = "total_directors"
 	TOTAL_MOVIES      = "total_movies"
 	TOTAL_STARS       = "total_stars"
+	FOR_GRAPH         = true
+	NOT_FOR_GRAPH     = false
 
 	// AWS
 	PAGINATE_KEY       = "paginate_key"

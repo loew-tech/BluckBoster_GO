@@ -48,7 +48,7 @@ func populateCaches(g *MovieGraph) error {
 	movieRepo := repos.NewMovieRepo(endpoints.GetDynamoClient())
 	ctx := context.Background()
 	for _, page := range constants.PAGES {
-		movies, err := movieRepo.GetMoviesByPage(ctx, string(page))
+		movies, err := movieRepo.GetMoviesByPage(ctx, constants.FOR_GRAPH, string(page))
 		if err != nil {
 			log.Printf("Err fetching movies for page %v. Err: %v\n", page, err)
 			errs = append(errs, err)

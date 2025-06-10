@@ -88,7 +88,7 @@ func getFields() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				movies, err := movieRepo.GetMoviesByPage(ctx, page)
+				movies, err := movieRepo.GetMoviesByPage(ctx, constants.NOT_FOR_GRAPH, page)
 				if err != nil {
 					errWrap := fmt.Errorf("failed to retrieve movies for page %s: %w", page, err)
 					log.Println(errWrap)
@@ -118,7 +118,7 @@ func getFields() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				movie, _, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
+				movie, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
 				if err != nil {
 					errWrap := fmt.Errorf("failed to retrieve movie %s from cloud: %w", movieID, err)
 					log.Println(errWrap)
@@ -251,7 +251,7 @@ func buildToSearch(p graphql.ResolveParams, star string, movieID string, directo
 			log.Printf("failed to get context: %v", err)
 			return toSearch
 		}
-		movie, _, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
+		movie, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
 		if err != nil {
 			log.Printf("failed to retrieve movie %s from cloud: %v", movieID, err)
 			return toSearch
