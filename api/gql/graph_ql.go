@@ -344,11 +344,11 @@ func getMutations() graphql.Fields {
 			},
 		},
 		constants.UPDATE_CART: &graphql.Field{
-			Type: graphql.NewList(graphql.String),
+			Type: graphql.String,
 			Args: graphql.FieldConfigArgument{
-				constants.USERNAME:           usernameArg,
-				constants.MOVIE_ID:           movieIDArg,
-				constants.SHOULD_ADD_TO_CART: &graphql.ArgumentConfig{Type: graphql.Boolean},
+				constants.USERNAME:         usernameArg,
+				constants.MOVIE_ID:         movieIDArg,
+				constants.REMOVE_FROM_CART: &graphql.ArgumentConfig{Type: graphql.Boolean},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username, ok := p.Args[constants.USERNAME].(string)
@@ -363,7 +363,7 @@ func getMutations() graphql.Fields {
 					log.Println(msg)
 					return nil, errors.New(msg)
 				}
-				shouldAddToCart, _ := p.Args[constants.SHOULD_ADD_TO_CART].(bool)
+				shouldRemoveFromCart, _ := p.Args[constants.REMOVE_FROM_CART].(bool)
 				ctx, err := getContext(p)
 				if err != nil {
 					log.Println(err)
@@ -371,25 +371,23 @@ func getMutations() graphql.Fields {
 				}
 
 				action := constants.ADD
-				if !shouldAddToCart {
+				if shouldRemoveFromCart {
 					action = constants.DELETE
 				}
 				act, direction := "adding", "to"
 				if action == constants.DELETE {
 					act, direction = "removing", "from"
 				}
-				var errs []error
-				var messages []string
 				inserted, _, err := membersRepo.ModifyCart(ctx, username, movieID, action, false)
 				if err != nil {
 					wrapErr := fmt.Errorf("error %s %s %s %s cart. Err: %w", act, movieID, direction, username, err)
 					log.Println(wrapErr)
 					return nil, wrapErr
 				} else if !inserted {
-					messages = append(messages, fmt.Sprintf("Failed to %s from %s cart", movieID, username))
+					return fmt.Sprintf("Failed to %s from %s cart", movieID, username), nil
 				}
 
-				return messages, errors.Join(errs...)
+				return "success", nil
 			},
 		},
 	}
