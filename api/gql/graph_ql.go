@@ -67,8 +67,10 @@ var KevingBaconType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var usernameArg = &graphql.ArgumentConfig{Type: graphql.ID}
 var starArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 var movieIDArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
+var movieIDsArg = &graphql.ArgumentConfig{Type: graphql.NewList(graphql.String), DefaultValue: []string{}}
 var directorArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 
 func getQueries() graphql.Fields {
@@ -130,7 +132,7 @@ func getQueries() graphql.Fields {
 		constants.GET_CHECKEDOUT: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
-				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
+				constants.USERNAME: usernameArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username, ok := p.Args[constants.USERNAME].(string)
@@ -160,7 +162,7 @@ func getQueries() graphql.Fields {
 		constants.GET_MEMBER: &graphql.Field{
 			Type: MemberType,
 			Args: graphql.FieldConfigArgument{
-				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
+				constants.USERNAME: usernameArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username, ok := p.Args[constants.USERNAME].(string)
@@ -308,8 +310,8 @@ func getMutations() graphql.Fields {
 		constants.RETURN_RENTALS: &graphql.Field{
 			Type: graphql.NewList(graphql.String),
 			Args: graphql.FieldConfigArgument{
-				constants.USERNAME:  &graphql.ArgumentConfig{Type: graphql.ID},
-				constants.MOVIE_IDS: &graphql.ArgumentConfig{Type: graphql.NewList(graphql.String)},
+				constants.USERNAME:  usernameArg,
+				constants.MOVIE_IDS: movieIDsArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username, ok := p.Args[constants.USERNAME].(string)
@@ -339,6 +341,55 @@ func getMutations() graphql.Fields {
 					return nil, errWrap
 				}
 				return messages, nil
+			},
+		},
+		constants.UPDATE_CART: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME:           usernameArg,
+				constants.MOVIE_ID:           movieIDArg,
+				constants.SHOULD_ADD_TO_CART: &graphql.ArgumentConfig{Type: graphql.Boolean},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for checkoutString mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				movieID, ok := p.Args[constants.MOVIE_ID].(string)
+				if !ok || len(movieID) == 0 {
+					msg := "movieIds argument is required for checkoutString mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				shouldAddToCart, _ := p.Args[constants.SHOULD_ADD_TO_CART].(bool)
+				ctx, err := getContext(p)
+				if err != nil {
+					log.Println(err)
+					return nil, err
+				}
+
+				action := constants.ADD
+				if !shouldAddToCart {
+					action = constants.DELETE
+				}
+				act, direction := "adding", "to"
+				if action == constants.DELETE {
+					act, direction = "removing", "from"
+				}
+				var errs []error
+				var messages []string
+				inserted, _, err := membersRepo.ModifyCart(ctx, username, movieID, action, false)
+				if err != nil {
+					wrapErr := fmt.Errorf("error %s %s %s %s cart. Err: %w", act, movieID, direction, username, err)
+					log.Println(wrapErr)
+					return nil, wrapErr
+				} else if !inserted {
+					messages = append(messages, fmt.Sprintf("Failed to %s from %s cart", movieID, username))
+				}
+
+				return messages, errors.Join(errs...)
 			},
 		},
 	}
