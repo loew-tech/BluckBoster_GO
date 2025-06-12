@@ -127,6 +127,36 @@ func getQueries() graphql.Fields {
 				return movie, nil
 			},
 		},
+		constants.GET_CHECKEDOUT: &graphql.Field{
+			Type: graphql.NewList(MovieType),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for getCheckedOut query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				user, err := membersRepo.GetMemberByUsername(ctx, username, constants.CART)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve user  %s: %w", username, err)
+					log.Println(errWrap)
+					return nil, errWrap
+				}
+				movies, err := movieRepo.GetMoviesByID(ctx, user.Checkedout, constants.CART)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve movies: %w", err)
+					log.Println(errWrap)
+				}
+				return movies, err
+			},
+		},
 		constants.GET_MEMBER: &graphql.Field{
 			Type: MemberType,
 			Args: graphql.FieldConfigArgument{
@@ -278,7 +308,7 @@ func getMutations() graphql.Fields {
 		constants.RETURN_RENTALS: &graphql.Field{
 			Type: graphql.NewList(graphql.String),
 			Args: graphql.FieldConfigArgument{
-				constants.USERNAME:  &graphql.ArgumentConfig{Type: graphql.String},
+				constants.USERNAME:  &graphql.ArgumentConfig{Type: graphql.ID},
 				constants.MOVIE_IDS: &graphql.ArgumentConfig{Type: graphql.NewList(graphql.String)},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {

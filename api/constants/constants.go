@@ -47,6 +47,7 @@ const (
 	PAGE              = "page"
 	GET_MOVIES        = "GetMovies"
 	GET_MOVIE         = "GetMovie"
+	GET_CHECKEDOUT    = "GetCheckedout"
 	GET_CART          = "GetCart"
 	RETURN_RENTALS    = "ReturnRentals"
 	GET_MEMBER        = "GetMember"
