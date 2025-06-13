@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	movieRepo   = repos.NewMovieRepo(endpoints.GetDynamoClient())
-	membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
-	movieGraph  *MovieGraph
+	movieRepo  = repos.NewMovieRepo(endpoints.GetDynamoClient())
+	memberRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
+	movieGraph *MovieGraph
 )
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
@@ -129,6 +129,31 @@ func getQueries() graphql.Fields {
 				return movie, nil
 			},
 		},
+		constants.GET_CART: &graphql.Field{
+			Type: graphql.NewList(MovieType),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME: usernameArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for getCart query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				movies, err := memberRepo.GetCartMovies(ctx, username)
+				var errorWrap error
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve movies in cart: %w", err)
+					log.Println(errWrap)
+				}
+				return movies, errorWrap
+			},
+		},
 		constants.GET_CHECKEDOUT: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
@@ -145,7 +170,7 @@ func getQueries() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				user, err := membersRepo.GetMemberByUsername(ctx, username, constants.CART)
+				user, err := memberRepo.GetMemberByUsername(ctx, username, constants.CART)
 				if err != nil {
 					errWrap := fmt.Errorf("failed to retrieve user  %s: %w", username, err)
 					log.Println(errWrap)
@@ -175,7 +200,7 @@ func getQueries() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				member, err := membersRepo.GetMemberByUsername(ctx, username, constants.NOT_CART)
+				member, err := memberRepo.GetMemberByUsername(ctx, username, constants.NOT_CART)
 				if err != nil {
 					errWrap := fmt.Errorf("failed to retrieve member %s from cloud: %w", username, err)
 					log.Println(errWrap)
@@ -334,7 +359,7 @@ func getMutations() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				messages, _, err := membersRepo.Return(ctx, username, ids)
+				messages, _, err := memberRepo.Return(ctx, username, ids)
 				if err != nil {
 					errWrap := fmt.Errorf("failed to return rentals for user %s: %w", username, err)
 					log.Println(errWrap)
@@ -378,7 +403,7 @@ func getMutations() graphql.Fields {
 				if action == constants.DELETE {
 					act, direction = "removing", "from"
 				}
-				inserted, _, err := membersRepo.ModifyCart(ctx, username, movieID, action, false)
+				inserted, _, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
 				if err != nil {
 					wrapErr := fmt.Errorf("error %s %s %s %s cart. Err: %w", act, movieID, direction, username, err)
 					log.Println(wrapErr)
@@ -388,6 +413,42 @@ func getMutations() graphql.Fields {
 				}
 
 				return "success", nil
+			},
+		},
+		constants.CHECKOUT_STRING: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME:  usernameArg,
+				constants.MOVIE_IDS: movieIDsArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for checkout mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				movieIDs, ok := p.Args[constants.MOVIE_IDS].([]interface{})
+				if !ok || len(movieIDs) == 0 {
+					msg := "movieIds argument is required for checkout mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ids := make([]string, len(movieIDs))
+				for i, v := range movieIDs {
+					ids[i], _ = v.(string)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				messages, _, err := memberRepo.Checkout(ctx, username, ids)
+				errWrap := err
+				if err != nil {
+					errWrap = fmt.Errorf("failed to checkout for user %s: %w", username, err)
+					log.Println(errWrap)
+				}
+				return messages, errWrap
 			},
 		},
 	}
