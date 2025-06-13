@@ -42,10 +42,15 @@ const (
 	NOT_CHECKOUT = false
 
 	// GraphQL
+	CHECKOUT_STRING   = "Checkout"
 	MOVIE_ID          = "movieID"
+	MOVIE_IDS         = "movieIDs"
 	PAGE              = "page"
 	GET_MOVIES        = "GetMovies"
 	GET_MOVIE         = "GetMovie"
+	GET_CHECKEDOUT    = "GetCheckedout"
+	GET_CART          = "GetCart"
+	RETURN_RENTALS    = "ReturnRentals"
 	GET_MEMBER        = "GetMember"
 	DIRECTED_BY       = "DirectedBy"
 	DIRECTORS         = "directors"
@@ -59,6 +64,8 @@ const (
 	TOTAL_DIRECTORS   = "total_directors"
 	TOTAL_MOVIES      = "total_movies"
 	TOTAL_STARS       = "total_stars"
+	REMOVE_FROM_CART  = "removeFromCart"
+	UPDATE_CART       = "UpdateCart"
 	FOR_GRAPH         = true
 	NOT_FOR_GRAPH     = false
 

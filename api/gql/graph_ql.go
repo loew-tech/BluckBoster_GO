@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	movieRepo   = repos.NewMovieRepo(endpoints.GetDynamoClient())
-	membersRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
-	movieGraph  *MovieGraph
+	movieRepo  = repos.NewMovieRepo(endpoints.GetDynamoClient())
+	memberRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
+	movieGraph *MovieGraph
 )
 
 var MovieType = graphql.NewObject(graphql.ObjectConfig{
@@ -67,11 +67,13 @@ var KevingBaconType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+var usernameArg = &graphql.ArgumentConfig{Type: graphql.ID}
 var starArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 var movieIDArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
+var movieIDsArg = &graphql.ArgumentConfig{Type: graphql.NewList(graphql.String), DefaultValue: []string{}}
 var directorArg = &graphql.ArgumentConfig{Type: graphql.String, DefaultValue: ""}
 
-func getFields() graphql.Fields {
+func getQueries() graphql.Fields {
 	return graphql.Fields{
 		constants.GET_MOVIES: &graphql.Field{
 			Type: graphql.NewList(MovieType),
@@ -127,10 +129,65 @@ func getFields() graphql.Fields {
 				return movie, nil
 			},
 		},
+		constants.GET_CART: &graphql.Field{
+			Type: graphql.NewList(MovieType),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME: usernameArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for getCart query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				movies, err := memberRepo.GetCartMovies(ctx, username)
+				var errorWrap error
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve movies in cart: %w", err)
+					log.Println(errWrap)
+				}
+				return movies, errorWrap
+			},
+		},
+		constants.GET_CHECKEDOUT: &graphql.Field{
+			Type: graphql.NewList(MovieType),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME: usernameArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for getCheckedOut query"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				user, err := memberRepo.GetMemberByUsername(ctx, username, constants.CART)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve user  %s: %w", username, err)
+					log.Println(errWrap)
+					return nil, errWrap
+				}
+				movies, err := movieRepo.GetMoviesByID(ctx, user.Checkedout, constants.CART)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to retrieve movies: %w", err)
+					log.Println(errWrap)
+				}
+				return movies, err
+			},
+		},
 		constants.GET_MEMBER: &graphql.Field{
 			Type: MemberType,
 			Args: graphql.FieldConfigArgument{
-				constants.USERNAME: &graphql.ArgumentConfig{Type: graphql.ID},
+				constants.USERNAME: usernameArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				username, ok := p.Args[constants.USERNAME].(string)
@@ -143,7 +200,7 @@ func getFields() graphql.Fields {
 				if err != nil {
 					return nil, err
 				}
-				member, err := membersRepo.GetMemberByUsername(ctx, username, constants.NOT_CART)
+				member, err := memberRepo.GetMemberByUsername(ctx, username, constants.NOT_CART)
 				if err != nil {
 					errWrap := fmt.Errorf("failed to retrieve member %s from cloud: %w", username, err)
 					log.Println(errWrap)
@@ -273,10 +330,137 @@ func KevinBaconInOut(star string, stars map[string]bool, movies map[string]bool,
 	movieGraph.BFS(star, stars, movies, directors, depth)
 }
 
+func getMutations() graphql.Fields {
+	return graphql.Fields{
+		constants.RETURN_RENTALS: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME:  usernameArg,
+				constants.MOVIE_IDS: movieIDsArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for returnRentals mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				movieIDs, ok := p.Args[constants.MOVIE_IDS].([]interface{})
+				if !ok || len(movieIDs) == 0 {
+					msg := "movieIds argument is required for returnRentals mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ids := make([]string, len(movieIDs))
+				for i, v := range movieIDs {
+					ids[i], _ = v.(string)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				messages, _, err := memberRepo.Return(ctx, username, ids)
+				if err != nil {
+					errWrap := fmt.Errorf("failed to return rentals for user %s: %w", username, err)
+					log.Println(errWrap)
+					return nil, errWrap
+				}
+				return messages, nil
+			},
+		},
+		constants.UPDATE_CART: &graphql.Field{
+			Type: graphql.String,
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME:         usernameArg,
+				constants.MOVIE_ID:         movieIDArg,
+				constants.REMOVE_FROM_CART: &graphql.ArgumentConfig{Type: graphql.Boolean},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for checkoutString mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				movieID, ok := p.Args[constants.MOVIE_ID].(string)
+				if !ok || len(movieID) == 0 {
+					msg := "movieIds argument is required for checkoutString mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				shouldRemoveFromCart, _ := p.Args[constants.REMOVE_FROM_CART].(bool)
+				ctx, err := getContext(p)
+				if err != nil {
+					log.Println(err)
+					return nil, err
+				}
+
+				action := constants.ADD
+				if shouldRemoveFromCart {
+					action = constants.DELETE
+				}
+				act, direction := "adding", "to"
+				if action == constants.DELETE {
+					act, direction = "removing", "from"
+				}
+				inserted, _, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
+				if err != nil {
+					wrapErr := fmt.Errorf("error %s %s %s %s cart. Err: %w", act, movieID, direction, username, err)
+					log.Println(wrapErr)
+					return nil, wrapErr
+				} else if !inserted {
+					return fmt.Sprintf("Failed to %s from %s cart", movieID, username), nil
+				}
+
+				return "success", nil
+			},
+		},
+		constants.CHECKOUT_STRING: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME:  usernameArg,
+				constants.MOVIE_IDS: movieIDsArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for checkout mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				movieIDs, ok := p.Args[constants.MOVIE_IDS].([]interface{})
+				if !ok || len(movieIDs) == 0 {
+					msg := "movieIds argument is required for checkout mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ids := make([]string, len(movieIDs))
+				for i, v := range movieIDs {
+					ids[i], _ = v.(string)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					return nil, err
+				}
+				messages, _, err := memberRepo.Checkout(ctx, username, ids)
+				errWrap := err
+				if err != nil {
+					errWrap = fmt.Errorf("failed to checkout for user %s: %w", username, err)
+					log.Println(errWrap)
+				}
+				return messages, errWrap
+			},
+		},
+	}
+}
+
 func getSchema() graphql.Schema {
-	fields := getFields()
-	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: fields}
-	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery)}
+	queryFiels := getQueries()
+	rootQuery := graphql.ObjectConfig{Name: "RootQuery", Fields: queryFiels}
+	mutationFields := getMutations()
+	rootMutation := graphql.ObjectConfig{Name: "RootMutation", Fields: mutationFields}
+
+	schemaConfig := graphql.SchemaConfig{Query: graphql.NewObject(rootQuery), Mutation: graphql.NewObject(rootMutation)}
 	schema, err := graphql.NewSchema(schemaConfig)
 	if err != nil {
 		log.Fatalf("failed to create new schema, error: %v", err)
