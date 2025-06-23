@@ -209,7 +209,7 @@ func getQueries() graphql.Fields {
 				return member, nil
 			},
 		},
-		constants.DIRECTED_BY: &graphql.Field{
+		constants.DIRECTED_MOVIES: &graphql.Field{
 			Type: graphql.NewList(MovieType),
 			Args: graphql.FieldConfigArgument{
 				constants.DIRECTOR: directorArg,
@@ -217,6 +217,17 @@ func getQueries() graphql.Fields {
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
 				return movieGraph.GetDirectedMovies(director), nil
+			},
+		},
+		constants.DIRECTED_PERFORMERS: &graphql.Field{
+			Type: graphql.NewList(graphql.String),
+			Args: graphql.FieldConfigArgument{
+				constants.DIRECTOR: directorArg,
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				director := p.Args[constants.DIRECTOR].(string)
+				fmt.Println("Director=", director)
+				return movieGraph.GetDirectedActors(director), nil
 			},
 		},
 		constants.STARREDIN: &graphql.Field{
