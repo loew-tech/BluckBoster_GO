@@ -19,6 +19,7 @@ type MovieGraph struct {
 	NumDirectors   int
 	NumStars       int
 	NumMovies      int
+	movieIDToMovie map[string]data.Movie
 	aveEdgeNum     int
 }
 
@@ -37,6 +38,7 @@ func NewMovieGraph() (*MovieGraph, error) {
 			NumDirectors:   0,
 			NumStars:       0,
 			NumMovies:      0,
+			movieIDToMovie: make(map[string]data.Movie),
 		}
 		initErr = populateCaches(mg)
 	})
@@ -57,6 +59,7 @@ func populateCaches(g *MovieGraph) error {
 		}
 		for _, movie := range movies {
 			g.NumMovies++
+			g.movieIDToMovie[movie.ID] = movie
 			g.directedMovies[movie.Director] = append(g.directedMovies[movie.Director], movie)
 			for _, actor := range movie.Cast {
 				g.starredIn[actor] = append(g.starredIn[actor], movie)
@@ -94,7 +97,7 @@ func getAverageStarredWithSize(g *MovieGraph) error {
 	return nil
 }
 
-func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[string]bool, directors map[string]bool, maxDepth int) {
+func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movieIDs map[string]bool, directors map[string]bool, maxDepth int) {
 	toSearch := []string{startStar}
 	depth := 0
 	for len(toSearch) > 0 && depth < maxDepth {
@@ -103,8 +106,8 @@ func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[str
 		for _, star := range toSearch {
 			stars[star] = true
 			for _, movie := range g.starredIn[star] {
-				if _, found := movies[movie.ID]; !found {
-					movies[movie.ID] = true
+				if _, found := movieIDs[movie.ID]; !found {
+					movieIDs[movie.ID] = true
 					for _, coStar := range movie.Cast {
 						if _, found := stars[coStar]; !found {
 							stars[coStar] = true
@@ -148,4 +151,12 @@ func (g *MovieGraph) GetStarredWith(star string) []string {
 		coStars = append(coStars, coStar)
 	}
 	return coStars
+}
+
+func (g *MovieGraph) GetMoviesByID(movieIDs map[string]bool) []data.Movie {
+	movies := make([]data.Movie, 0, len(movieIDs))
+	for mid := range movieIDs {
+		movies = append(movies, g.movieIDToMovie[mid])
+	}
+	return movies
 }

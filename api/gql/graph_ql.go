@@ -60,7 +60,7 @@ var KevingBaconType = graphql.NewObject(graphql.ObjectConfig{
 		constants.STAR:            &graphql.Field{Type: graphql.String},
 		constants.STARS:           &graphql.Field{Type: graphql.NewList(graphql.String)},
 		constants.TOTAL_STARS:     &graphql.Field{Type: graphql.Int},
-		constants.MOVIES:          &graphql.Field{Type: graphql.NewList(graphql.String)},
+		constants.MOVIES:          &graphql.Field{Type: graphql.NewList(MovieType)},
 		constants.TOTAL_MOVIES:    &graphql.Field{Type: graphql.Int},
 		constants.DIRECTORS:       &graphql.Field{Type: graphql.NewList(graphql.String)},
 		constants.TOTAL_DIRECTORS: &graphql.Field{Type: graphql.Int},
@@ -281,21 +281,20 @@ func getQueries() graphql.Fields {
 
 				depth := min(p.Args[constants.DEPTH].(int), 6)
 				stars := make(map[string]bool)
-				movies := make(map[string]bool)
+				movieIDs := make(map[string]bool)
 				directors := make(map[string]bool)
 				for _, s := range toSearch {
-					if _, found := stars[s]; s != star && !found {
-						stars[s] = true
+					if _, found := stars[s]; found {
 						continue
 					}
-					KevinBaconInOut(s, stars, movies, directors, depth)
+					KevinBaconInOut(s, stars, movieIDs, directors, depth)
 				}
 
 				return map[string]interface{}{
 					constants.STAR:            star,
 					constants.STARS:           SetToList(stars),
 					constants.TOTAL_STARS:     movieGraph.NumStars,
-					constants.MOVIES:          SetToList(movies),
+					constants.MOVIES:          movieGraph.GetMoviesByID(movieIDs),
 					constants.TOTAL_MOVIES:    movieGraph.NumMovies,
 					constants.DIRECTORS:       SetToList(directors),
 					constants.TOTAL_DIRECTORS: movieGraph.NumDirectors,
@@ -324,6 +323,7 @@ func buildToSearch(p graphql.ResolveParams, star string, movieID string, directo
 			log.Printf("failed to retrieve movie %s from cloud: %v", movieID, err)
 			return toSearch
 		}
+		// @TODO: decide if I want to include this movies director?
 		toSearch = append(toSearch, movie.Cast...)
 	}
 	return toSearch
@@ -331,14 +331,14 @@ func buildToSearch(p graphql.ResolveParams, star string, movieID string, directo
 
 func KevinBacon(star string, depth int) ([]string, []string, []string) {
 	stars := make(map[string]bool)
-	movies := make(map[string]bool)
+	movieIDs := make(map[string]bool)
 	directors := make(map[string]bool)
-	KevinBaconInOut(star, stars, movies, directors, depth)
-	return SetToList(stars), SetToList(movies), SetToList(directors)
+	KevinBaconInOut(star, stars, movieIDs, directors, depth)
+	return SetToList(stars), SetToList(movieIDs), SetToList(directors)
 }
 
-func KevinBaconInOut(star string, stars map[string]bool, movies map[string]bool, directors map[string]bool, depth int) {
-	movieGraph.BFS(star, stars, movies, directors, depth)
+func KevinBaconInOut(star string, stars map[string]bool, movieIDs map[string]bool, directors map[string]bool, depth int) {
+	movieGraph.BFS(star, stars, movieIDs, directors, depth)
 }
 
 func getMutations() graphql.Fields {
