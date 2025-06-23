@@ -39,7 +39,7 @@ func (r *MovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page str
 		"#c": constants.CAST,
 	}
 	if !forGraph {
-		expr = fmt.Sprintf("%s, inventory, rented, #y", expr)
+		expr = fmt.Sprintf("%s, inventory, rented, rating, #y", expr)
 		exprAttrNames["#y"] = constants.YEAR
 	}
 	projectionExpr = &expr
