@@ -279,7 +279,7 @@ func getQueries() graphql.Fields {
 					return nil, errors.New(msg)
 				}
 
-				depth := min(p.Args[constants.DEPTH].(int), 6)
+				depth := min(p.Args[constants.DEPTH].(int), 10)
 				stars := make(map[string]bool)
 				movieIDs := make(map[string]bool)
 				directors := make(map[string]bool)
@@ -323,7 +323,6 @@ func buildToSearch(p graphql.ResolveParams, star string, movieID string, directo
 			log.Printf("failed to retrieve movie %s from cloud: %v", movieID, err)
 			return toSearch
 		}
-		// @TODO: decide if I want to include this movies director?
 		toSearch = append(toSearch, movie.Cast...)
 	}
 	return toSearch
