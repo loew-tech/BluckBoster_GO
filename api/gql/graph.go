@@ -13,13 +13,14 @@ import (
 )
 
 type MovieGraph struct {
-	directed     map[string][]data.Movie
-	starredWith  map[string]map[string]bool
-	starredIn    map[string][]data.Movie
-	NumDirectors int
-	NumStars     int
-	NumMovies    int
-	aveEdgeNum   int
+	directedMovies map[string][]data.Movie
+	starredWith    map[string]map[string]bool
+	starredIn      map[string][]data.Movie
+	NumDirectors   int
+	NumStars       int
+	NumMovies      int
+	movieIDToMovie map[string]data.Movie
+	aveEdgeNum     int
 }
 
 var (
@@ -31,12 +32,13 @@ var (
 func NewMovieGraph() (*MovieGraph, error) {
 	once.Do(func() {
 		mg = &MovieGraph{
-			directed:     make(map[string][]data.Movie),
-			starredWith:  make(map[string]map[string]bool),
-			starredIn:    make(map[string][]data.Movie),
-			NumDirectors: 0,
-			NumStars:     0,
-			NumMovies:    0,
+			directedMovies: make(map[string][]data.Movie),
+			starredWith:    make(map[string]map[string]bool),
+			starredIn:      make(map[string][]data.Movie),
+			NumDirectors:   0,
+			NumStars:       0,
+			NumMovies:      0,
+			movieIDToMovie: make(map[string]data.Movie),
 		}
 		initErr = populateCaches(mg)
 	})
@@ -44,6 +46,7 @@ func NewMovieGraph() (*MovieGraph, error) {
 }
 
 func populateCaches(g *MovieGraph) error {
+	// return nil
 	var errs []error
 	movieRepo := repos.NewMovieRepo(endpoints.GetDynamoClient())
 	ctx := context.Background()
@@ -56,7 +59,8 @@ func populateCaches(g *MovieGraph) error {
 		}
 		for _, movie := range movies {
 			g.NumMovies++
-			g.directed[movie.Director] = append(g.directed[movie.Director], movie)
+			g.movieIDToMovie[movie.ID] = movie
+			g.directedMovies[movie.Director] = append(g.directedMovies[movie.Director], movie)
 			for _, actor := range movie.Cast {
 				g.starredIn[actor] = append(g.starredIn[actor], movie)
 				for _, coStar := range movie.Cast {
@@ -71,7 +75,7 @@ func populateCaches(g *MovieGraph) error {
 			}
 		}
 	}
-	g.NumDirectors = len(g.directed)
+	g.NumDirectors = len(g.directedMovies)
 	g.NumStars = len(g.starredIn)
 	err := getAverageStarredWithSize(g)
 	if err != nil {
@@ -93,7 +97,7 @@ func getAverageStarredWithSize(g *MovieGraph) error {
 	return nil
 }
 
-func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[string]bool, directors map[string]bool, maxDepth int) {
+func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movieIDs map[string]bool, directors map[string]bool, maxDepth int) {
 	toSearch := []string{startStar}
 	depth := 0
 	for len(toSearch) > 0 && depth < maxDepth {
@@ -102,8 +106,8 @@ func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[str
 		for _, star := range toSearch {
 			stars[star] = true
 			for _, movie := range g.starredIn[star] {
-				if _, found := movies[movie.ID]; !found {
-					movies[movie.ID] = true
+				if _, found := movieIDs[movie.ID]; !found {
+					movieIDs[movie.ID] = true
 					for _, coStar := range movie.Cast {
 						if _, found := stars[coStar]; !found {
 							stars[coStar] = true
@@ -119,13 +123,13 @@ func (g *MovieGraph) BFS(startStar string, stars map[string]bool, movies map[str
 }
 
 func (g *MovieGraph) GetDirectedMovies(director string) []data.Movie {
-	return g.directed[director]
+	return g.directedMovies[director]
 }
 
 func (g *MovieGraph) GetDirectedActors(director string) []string {
 	actors := make(map[string]bool)
 	var actorList []string
-	for _, movie := range g.directed[director] {
+	for _, movie := range g.directedMovies[director] {
 		for _, actor := range movie.Cast {
 			if _, found := actors[actor]; found {
 				continue
@@ -147,4 +151,12 @@ func (g *MovieGraph) GetStarredWith(star string) []string {
 		coStars = append(coStars, coStar)
 	}
 	return coStars
+}
+
+func (g *MovieGraph) GetMoviesByID(movieIDs map[string]bool) []data.Movie {
+	movies := make([]data.Movie, 0, len(movieIDs))
+	for mid := range movieIDs {
+		movies = append(movies, g.movieIDToMovie[mid])
+	}
+	return movies
 }
