@@ -67,6 +67,7 @@ const (
 	TOTAL_STARS         = "total_stars"
 	REMOVE_FROM_CART    = "removeFromCart"
 	UPDATE_CART         = "UpdateCart"
+	SET_API_CHOICE      = "SetAPIChoice"
 	FOR_GRAPH           = true
 	NOT_FOR_GRAPH       = false
 
@@ -74,4 +75,9 @@ const (
 	PAGINATE_KEY       = "paginate_key"
 	PAGINATE_KEY_INDEX = "paginate_key-index"
 	PAGES              = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+	// API Choice
+	API_CHOICE  = "api_choice"
+	REST_API    = "REST"
+	GRAPHQL_API = "GraphQL"
 )

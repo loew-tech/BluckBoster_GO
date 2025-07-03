@@ -461,6 +461,46 @@ func getMutations() graphql.Fields {
 				return messages, errWrap
 			},
 		},
+		constants.SET_API_CHOICE: &graphql.Field{
+			Type: graphql.String,
+			Args: graphql.FieldConfigArgument{
+				constants.USERNAME: usernameArg,
+				constants.API_CHOICE: &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: constants.REST_API,
+				},
+			},
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				username, ok := p.Args[constants.USERNAME].(string)
+				if !ok || username == "" {
+					msg := "username argument is required for checkoutString mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				apiChoice, ok := p.Args[constants.API_CHOICE].(string)
+				if !ok || apiChoice == "" {
+					msg := "apiChoice argument is required for checkoutString mutation"
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
+					msg := fmt.Sprintf("apiChoice must be either %s or %s, got %s", constants.REST_API, constants.GRAPHQL_API, apiChoice)
+					log.Println(msg)
+					return nil, errors.New(msg)
+				}
+				ctx, err := getContext(p)
+				if err != nil {
+					log.Println(err)
+					return nil, err
+				}
+				err = memberRepo.SetMemberAPIChoice(ctx, username, apiChoice)
+				if err != nil {
+					log.Println(err)
+					return nil, err
+				}
+				return fmt.Sprintf("successfully set %s api choice to %s", username, apiChoice), nil
+			},
+		},
 	}
 }
 

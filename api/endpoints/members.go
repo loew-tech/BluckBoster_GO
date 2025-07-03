@@ -190,3 +190,24 @@ func GetCheckedOutMovies(c *gin.Context) {
 	}
 	c.IndentedJSON(http.StatusOK, movies)
 }
+
+func SetMemberAPIChoiceEndpoint(c *gin.Context) {
+	username := c.Param(constants.USERNAME)
+	apiChoice := c.Query(constants.API_CHOICE)
+	if username == "" || apiChoice == "" {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"msg": "Username and API choice are required"})
+		return
+	}
+	if !(apiChoice == constants.REST_API || apiChoice == constants.GRAPHQL_API) {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"msg": "Invalid API choice"})
+		return
+	}
+
+	err := memberRepo.SetMemberAPIChoice(c, username, apiChoice)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("Failed to set API choice for user %s", username)})
+		return
+	}
+
+	c.IndentedJSON(http.StatusAccepted, gin.H{"msg": fmt.Sprintf("API choice for user %s set to %s", username, apiChoice)})
+}
