@@ -484,7 +484,7 @@ func getMutations() graphql.Fields {
 					return nil, errors.New(msg)
 				}
 				if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
-					msg := fmt.Sprintf("apiChoice must be either %s or %s, got %	s", constants.REST_API, constants.GRAPHQL_API, apiChoice)
+					msg := fmt.Sprintf("apiChoice must be either %s or %s, got %s", constants.REST_API, constants.GRAPHQL_API, apiChoice)
 					log.Println(msg)
 					return nil, errors.New(msg)
 				}
