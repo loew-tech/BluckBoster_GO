@@ -12,6 +12,7 @@ type Member struct {
 	Checkedout []string `json:"checked_out,omitempty" dynamodbav:"checked_out,omitempty"`
 	Rented     []string `json:"rented,omitempty" dynamodbav:"rented,omitempty"`
 	Type       string   `json:"member_type" dynamodbav:"member_type"`
+	APIChoice  string   `json:"api_choice,omitempty" dynamodbav:"api_choice,omitempty"`
 }
 
 type Movie struct {

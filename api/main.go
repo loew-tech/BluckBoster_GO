@@ -37,7 +37,7 @@ func main() {
 	router.GET("/api/v1/members/:username", endpoints.GetMemberEndpoint)
 	router.POST("/api/v1/members/login", endpoints.MemberLoginEndpoint)
 	router.GET("/api/v1/members/:username/cart", endpoints.GetCartMoviesEndpoint)
-	// @TODO: remove this once FE cors issue is resolved
+	router.PUT("/api/v1/members/:username", endpoints.SetMemberAPIChoiceEndpoint)
 	router.GET("/api/v1/members/cart/:username", endpoints.GetCartMoviesEndpoint)
 	router.PUT("/api/v1/members/cart", endpoints.AddToCartEndpoint)
 	router.PUT("/api/v1/members/cart/remove", endpoints.RemoveFromCartEndpoint)

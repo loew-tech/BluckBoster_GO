@@ -262,3 +262,32 @@ func (r *MemberRepo) getReturnInput(movie data.Movie, name types.AttributeValue)
 		UpdateExpression:          &updateExpr,
 	}, nil
 }
+
+func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
+	name, err := attributevalue.Marshal(username)
+	if err != nil {
+		errWrap := fmt.Errorf("failed to marshal username %s: %w", username, err)
+		log.Println(errWrap)
+		return errWrap
+	}
+	updateExpr := "SET api_choice = :api_choice"
+	expressionAttrs := map[string]types.AttributeValue{
+		":api_choice": &types.AttributeValueMemberS{
+			Value: apiChoice,
+		},
+	}
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName:                 &r.tableName,
+		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
+		ExpressionAttributeValues: expressionAttrs,
+		UpdateExpression:          &updateExpr,
+		ReturnValues:              types.ReturnValueUpdatedNew,
+	}
+	_, err = r.client.UpdateItem(ctx, updateInput)
+	if err != nil {
+		errWrap := fmt.Errorf("failed to update member %s api choice: %w", username, err)
+		log.Println(errWrap)
+		return errWrap
+	}
+	return nil
+}

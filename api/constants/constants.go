@@ -74,4 +74,9 @@ const (
 	PAGINATE_KEY       = "paginate_key"
 	PAGINATE_KEY_INDEX = "paginate_key-index"
 	PAGES              = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+	// API Choice
+	API_CHOICE  = "api_choice"
+	REST_API    = "REST"
+	GRAPHQL_API = "GraphQL"
 )
