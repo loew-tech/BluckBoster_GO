@@ -67,6 +67,7 @@ const (
 	TOTAL_STARS         = "total_stars"
 	REMOVE_FROM_CART    = "removeFromCart"
 	UPDATE_CART         = "UpdateCart"
+	SET_API_CHOICE      = "SetAPIChoice"
 	FOR_GRAPH           = true
 	NOT_FOR_GRAPH       = false
 
