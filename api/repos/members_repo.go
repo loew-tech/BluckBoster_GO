@@ -19,10 +19,10 @@ const membersTableName = "BluckBoster_members"
 type MemberRepo struct {
 	client    *dynamodb.Client
 	tableName string
-	MovieRepo *MovieRepo
+	MovieRepo ReadWriteMovieRepo
 }
 
-func NewMembersRepo(client *dynamodb.Client, movieRepo *MovieRepo) *MemberRepo {
+func NewMembersRepo(client *dynamodb.Client, movieRepo ReadWriteMovieRepo) *MemberRepo {
 	return &MemberRepo{
 		client:    client,
 		tableName: membersTableName,
@@ -86,7 +86,7 @@ func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKe
 		ReturnValues:              types.ReturnValueUpdatedNew,
 		UpdateExpression:          &expr,
 	}
-	return r.updateMember(ctx, username, updateInput)
+	return r.updateMember(ctx, updateInput)
 }
 
 func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
@@ -168,7 +168,7 @@ func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []str
 			continue
 		}
 
-		ok, _, err := r.updateMember(ctx, username, updateInput)
+		ok, _, err := r.updateMember(ctx, updateInput)
 		if err != nil || !ok {
 			messages = append(messages, utils.LogError(fmt.Sprintf("returning %s", movie.Title), err).Error())
 			continue
@@ -186,7 +186,7 @@ func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []str
 
 func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
 	if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
-		return utils.LogError(fmt.Sprintf("%S is not valid api selection. Choices: \"REST\" and \"GraphQL\""),
+		return utils.LogError(fmt.Sprintf("%s is not valid api selection. Choices: \"REST\" and \"GraphQL\"", apiChoice),
 			fmt.Errorf("unexpected API Choice: %s", apiChoice))
 	}
 	name, err := attributevalue.Marshal(username)
@@ -209,12 +209,12 @@ func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice
 	}
 	_, err = r.client.UpdateItem(ctx, updateInput)
 	if err != nil {
-		return utils.LogError(fmt.Sprintf("failed to update member %s api choice: %w", username, err), err)
+		return utils.LogError(fmt.Sprintf("failed to update member %s api choice: %v", username, err), err)
 	}
 	return nil
 }
 
-func (r *MemberRepo) updateMember(ctx context.Context, username string, input *dynamodb.UpdateItemInput) (bool, *dynamodb.UpdateItemOutput, error) {
+func (r *MemberRepo) updateMember(ctx context.Context, input *dynamodb.UpdateItemInput) (bool, *dynamodb.UpdateItemOutput, error) {
 	response, err := r.client.UpdateItem(ctx, input)
 	if err != nil {
 		return false, response, utils.LogError("updating member", err)

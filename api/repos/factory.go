@@ -5,14 +5,14 @@ import (
 )
 
 // GetMovieRepoWithDynamo returns a new MovieRepo using the default DynamoDB client.
-func NewMovieRepoWithDynamo() *MovieRepo {
+func NewMovieRepoWithDynamo() ReadWriteMovieRepo {
 	client := utils.GetDynamoClient()
-	return NewMovieRepo(client)
+	return NewDynamoMovieRepo(client)
 }
 
 // GetMemberRepoWithDynamo returns a new MemberRepo with its own MovieRepo dependency.
 func NewMemberRepoWithDynamo() *MemberRepo {
 	client := utils.GetDynamoClient()
-	movieRepo := NewMovieRepo(client)
+	movieRepo := NewDynamoMovieRepo(client)
 	return NewMembersRepo(client, movieRepo)
 }

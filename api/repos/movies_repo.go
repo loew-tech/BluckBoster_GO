@@ -18,19 +18,19 @@ import (
 
 const movieTableName = "BluckBoster_movies"
 
-type MovieRepo struct {
+type DynamoMovieRepo struct {
 	client    *dynamodb.Client
 	tableName string
 }
 
-func NewMovieRepo(client *dynamodb.Client) *MovieRepo {
-	return &MovieRepo{
+func NewDynamoMovieRepo(client *dynamodb.Client) *DynamoMovieRepo {
+	return &DynamoMovieRepo{
 		client:    client,
 		tableName: movieTableName,
 	}
 }
 
-func (r *MovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page string) ([]data.Movie, error) {
+func (r *DynamoMovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page string) ([]data.Movie, error) {
 	expr := "#i, title, #c, director"
 	exprAttrNames := map[string]string{
 		"#i": constants.ID,
@@ -70,7 +70,7 @@ func (r *MovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page str
 	return movies, nil
 }
 
-func (r *MovieRepo) GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, error) {
+func (r *DynamoMovieRepo) GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, error) {
 	input, err := r.getMovieByIDInput(movieID, forCart)
 	if err != nil {
 		return data.Movie{}, utils.LogError("creating GetItemInput", err)
@@ -84,7 +84,7 @@ func (r *MovieRepo) GetMovieByID(ctx context.Context, movieID string, forCart bo
 	return r.getMovieByIDResult(result)
 }
 
-func (r *MovieRepo) getMovieByIDInput(movieID string, forCart bool) (*dynamodb.GetItemInput, error) {
+func (r *DynamoMovieRepo) getMovieByIDInput(movieID string, forCart bool) (*dynamodb.GetItemInput, error) {
 	if movieID == "" {
 		return nil, errors.New("movieID cannot be empty")
 	}
@@ -104,7 +104,7 @@ func (r *MovieRepo) getMovieByIDInput(movieID string, forCart bool) (*dynamodb.G
 	}, nil
 }
 
-func (r *MovieRepo) getMovieByIDResult(result *dynamodb.GetItemOutput) (data.Movie, error) {
+func (r *DynamoMovieRepo) getMovieByIDResult(result *dynamodb.GetItemOutput) (data.Movie, error) {
 	if result.Item == nil {
 		return data.Movie{}, errors.New("movie not found")
 	}
@@ -116,9 +116,12 @@ func (r *MovieRepo) getMovieByIDResult(result *dynamodb.GetItemOutput) (data.Mov
 	return movie, nil
 }
 
-func (r *MovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, error) {
+func (r *DynamoMovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, error) {
 	if len(movieIDs) == 0 {
 		return []data.Movie{}, nil
+	}
+	if len(movieIDs) > 10 {
+		return nil, errors.New("batch size exceeds DynamoDB 100-item limit")
 	}
 
 	keys := make([]map[string]types.AttributeValue, 0, len(movieIDs))
@@ -155,7 +158,7 @@ func (r *MovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, forCar
 	return movies, nil
 }
 
-func (r *MovieRepo) Rent(ctx context.Context, movie data.Movie) (bool, error) {
+func (r *DynamoMovieRepo) Rent(ctx context.Context, movie data.Movie) (bool, error) {
 	input, err := getUpdateInventoryInput(movie, -1)
 	if err != nil {
 		return false, utils.LogError("creating rent input", err)
@@ -163,7 +166,7 @@ func (r *MovieRepo) Rent(ctx context.Context, movie data.Movie) (bool, error) {
 	return r.updateInventory(ctx, movie, input)
 }
 
-func (r *MovieRepo) Return(ctx context.Context, movie data.Movie) (bool, error) {
+func (r *DynamoMovieRepo) Return(ctx context.Context, movie data.Movie) (bool, error) {
 	input, err := getUpdateInventoryInput(movie, 1)
 	if err != nil {
 		return false, utils.LogError("creating return input", err)
@@ -186,7 +189,7 @@ func getUpdateInventoryInput(movie data.Movie, inventoryDelta int) (*dynamodb.Up
 	}, nil
 }
 
-func (r *MovieRepo) updateInventory(ctx context.Context, movie data.Movie, input *dynamodb.UpdateItemInput) (bool, error) {
+func (r *DynamoMovieRepo) updateInventory(ctx context.Context, movie data.Movie, input *dynamodb.UpdateItemInput) (bool, error) {
 	_, err := r.client.UpdateItem(ctx, input)
 	if err != nil {
 		return false, utils.LogError(fmt.Sprintf("updating inventory for movie %s", movie.ID), err)
@@ -194,7 +197,7 @@ func (r *MovieRepo) updateInventory(ctx context.Context, movie data.Movie, input
 	return true, nil
 }
 
-func (r *MovieRepo) GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error) {
+func (r *DynamoMovieRepo) GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error) {
 	input := &dynamodb.GetItemInput{
 		Key:             map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
 		TableName:       &r.tableName,
