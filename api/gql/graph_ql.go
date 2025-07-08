@@ -14,13 +14,12 @@ import (
 
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
-	"blockbuster/api/endpoints"
 	"blockbuster/api/repos"
 )
 
 var (
-	movieRepo  = repos.NewMovieRepo(endpoints.GetDynamoClient())
-	memberRepo = repos.NewMembersRepo(endpoints.GetDynamoClient())
+	movieRepo  = repos.NewMovieRepo(repos.GetDynamoClient())
+	memberRepo = repos.NewMembersRepo(repos.GetDynamoClient(), repos.NewMovieRepo(repos.GetDynamoClient()))
 	movieGraph *MovieGraph
 )
 

@@ -2,6 +2,7 @@ package repos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -21,49 +22,41 @@ type MemberRepo struct {
 	MovieRepo *MovieRepo
 }
 
-func NewMembersRepo(client *dynamodb.Client) *MemberRepo {
+func NewMembersRepo(client *dynamodb.Client, movieRepo *MovieRepo) *MemberRepo {
 	return &MemberRepo{
 		client:    client,
 		tableName: membersTableName,
-		MovieRepo: NewMovieRepo(client),
+		MovieRepo: movieRepo,
 	}
 }
 
 func (r *MemberRepo) GetMemberByUsername(ctx context.Context, username string, cartOnly bool) (data.Member, error) {
 	member := data.Member{}
-	var projectionExpr *string
-	var exprAttrNames map[string]string
+
+	input := &dynamodb.GetItemInput{
+		Key: map[string]types.AttributeValue{
+			constants.USERNAME: &types.AttributeValueMemberS{Value: username},
+		},
+		TableName: &r.tableName,
+	}
+
 	if cartOnly {
 		expr := "username, cart, checked_out, #t"
-		projectionExpr = &expr
-		exprAttrNames = map[string]string{
-			"#t": constants.TYPE,
-		}
-	}
-	input := &dynamodb.GetItemInput{
-		Key:                      map[string]types.AttributeValue{constants.USERNAME: &types.AttributeValueMemberS{Value: username}},
-		TableName:                &r.tableName,
-		ProjectionExpression:     projectionExpr,
-		ExpressionAttributeNames: exprAttrNames,
+		input.ProjectionExpression = &expr
+		input.ExpressionAttributeNames = map[string]string{"#t": constants.TYPE}
 	}
 
 	result, err := r.client.GetItem(ctx, input)
 	if err != nil {
-		errWrap := fmt.Errorf("err fetching user from cloud: %w", err)
-		log.Println(errWrap)
-		return member, errWrap
+		return member, logError("fetching user from cloud", err)
 	}
 	if result.Item == nil {
-		errWrap := fmt.Errorf("failed to get user %s", username)
-		log.Println(errWrap)
-		return member, errWrap
+		return member, logError(fmt.Sprintf("user %s not found", username), nil)
 	}
 
 	err = attributevalue.UnmarshalMap(result.Item, &member)
 	if err != nil {
-		errWrap := fmt.Errorf("failed to unmarshall data %w", err)
-		log.Println(errWrap)
-		return member, errWrap
+		return member, logError("unmarshalling user data", err)
 	}
 	return member, nil
 }
@@ -71,104 +64,68 @@ func (r *MemberRepo) GetMemberByUsername(ctx context.Context, username string, c
 func (r *MemberRepo) GetCartMovies(ctx context.Context, username string) ([]data.Movie, error) {
 	user, err := r.GetMemberByUsername(ctx, username, constants.CART)
 	if err != nil {
-		log.Printf("Err in fetching cart movie ids for %s\n", username)
-		return nil, err
+		return nil, logError("fetching cart movie IDs", err)
 	}
-
-	var movies []data.Movie
-	if 0 < len(user.Cart) {
-		movies, err = r.MovieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
-		if err != nil {
-			errWrap := fmt.Errorf("failed to get movies in cart. %w", err)
-			log.Println(errWrap)
-			return nil, errWrap
-		}
+	if len(user.Cart) == 0 {
+		return []data.Movie{}, nil
 	}
-	return movies, nil
+	return r.MovieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
 }
 
-func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (
-	bool, *dynamodb.UpdateItemOutput, error,
-) {
+func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, *dynamodb.UpdateItemOutput, error) {
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
-		errWrap := fmt.Errorf("failed to marshal username %s: %w", username, err)
-		log.Println(errWrap)
-		return false, nil, errWrap
+		return false, nil, logError("marshalling username", err)
 	}
 
-	updateExpr := fmt.Sprintf("%s cart :cart", updateKey)
-	expressionAttrs := map[string]types.AttributeValue{
-		":cart": &types.AttributeValueMemberSS{
-			Value: []string{movieID},
-		},
-	}
-	if checkingOut {
-		updateExpr = fmt.Sprintf("%s ADD checked_out :checked_out", updateExpr)
-		expressionAttrs[":checked_out"] = &types.AttributeValueMemberSS{Value: []string{movieID}}
-	}
+	expr, attrs := buildCartUpdateExpr(movieID, updateKey, checkingOut)
 	updateInput := &dynamodb.UpdateItemInput{
 		TableName:                 &r.tableName,
 		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
-		ExpressionAttributeValues: expressionAttrs,
+		ExpressionAttributeValues: attrs,
 		ReturnValues:              types.ReturnValueUpdatedNew,
-		UpdateExpression:          &updateExpr,
+		UpdateExpression:          &expr,
 	}
 	return r.updateMember(ctx, username, updateInput)
 }
 
-func (r *MemberRepo) updateMember(ctx context.Context, username string, updateInput *dynamodb.UpdateItemInput) (
-	bool, *dynamodb.UpdateItemOutput, error,
-) {
-	response, err := r.client.UpdateItem(ctx, updateInput)
-	if err != nil {
-		errWrap := fmt.Errorf("failed to update member %s: %w", username, err)
-		log.Println(errWrap)
-		return false, response, errWrap
-	}
-	return true, response, nil
-}
-
 func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
-	var rented int
-	var messages []string
 	user, err := r.GetMemberByUsername(ctx, username, constants.CART)
 	if err != nil {
-		errWrap := fmt.Errorf("failed to retrieve user %s from cloud. err=%w", username, err)
-		log.Println(errWrap)
-		return nil, rented, errWrap
+		return nil, 0, logError("retrieving user", err)
 	}
+
 	if data.MemberTypes[user.Type] < len(movieIDs)+len(user.Checkedout) {
-		return nil, rented, nil
+		return []string{"member limit exceeded"}, 0, nil
 	}
 
 	movies, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
-		errWrap := fmt.Errorf("failed to retrieve movies from cloud: %w", err)
-		log.Println(errWrap)
-		return nil, rented, errWrap
+		return nil, 0, logError("retrieving movies", err)
 	}
+
+	return r.performCheckout(ctx, user, movies)
+}
+
+func (r *MemberRepo) performCheckout(ctx context.Context, user data.Member, movies []data.Movie) ([]string, int, error) {
+	var rented int
+	var messages []string
 
 	for _, movie := range movies {
 		if movie.Inventory < 0 {
-			messages = append(messages, fmt.Sprintf("%s is out of stock and could not be rented", movie.Title))
+			messages = append(messages, fmt.Sprintf("%s is out of stock", movie.Title))
 			continue
 		}
-
-		contains, _ := data.SliceContains(user.Checkedout, movie.ID)
-		if contains {
-			messages = append(messages, fmt.Sprintf("%s is currently checked out by %s", movie.Title, user.Username))
+		if contains(user.Checkedout, movie.ID) {
+			messages = append(messages, fmt.Sprintf("%s is already checked out", movie.Title))
 			continue
 		}
-		contains, _ = data.SliceContains(user.Cart, movie.ID)
-		if !contains {
-			messages = append(messages, fmt.Sprintf("%s is not in %s cart", movie.Title, user.Username))
+		if !contains(user.Cart, movie.ID) {
+			messages = append(messages, fmt.Sprintf("%s is not in cart", movie.Title))
 			continue
 		}
-
-		err := r.checkoutMovie(ctx, user, movie)
-		if err != nil {
-			messages = append(messages, fmt.Errorf("failed to rent %s\n:Err: %w", movie.ID, err).Error())
+		if err := r.checkoutMovie(ctx, user, movie); err != nil {
+			messages = append(messages, err.Error())
 			continue
 		}
 		rented++
@@ -177,90 +134,54 @@ func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []s
 }
 
 func (r *MemberRepo) checkoutMovie(ctx context.Context, user data.Member, movie data.Movie) error {
-	success, err := r.MovieRepo.Rent(ctx, movie)
-	if err != nil {
-		errWrap := fmt.Errorf("failed to checkout movie %s: %w", movie.Title, err)
-		log.Println(errWrap)
-		return errWrap
-	}
-	if !success {
-		errWrap := fmt.Errorf("failed to checkout %s", movie.Title)
-		log.Println(errWrap)
-		return errWrap
+	ok, err := r.MovieRepo.Rent(ctx, movie)
+	if err != nil || !ok {
+		return logError(fmt.Sprintf("renting %s", movie.Title), err)
 	}
 
-	modified, _, err := r.ModifyCart(ctx, user.Username, movie.ID, constants.DELETE, constants.CHECKOUT)
-	if !modified || err != nil {
+	ok, _, err = r.ModifyCart(ctx, user.Username, movie.ID, constants.DELETE, constants.CHECKOUT)
+	if err != nil || !ok {
 		r.MovieRepo.Return(ctx, movie)
-		errWrap := fmt.Errorf("failed to remove %s from %s cart: %w", movie.Title, user.Username, err)
-		log.Println(errWrap)
-		return errWrap
+		return logError(fmt.Sprintf("removing %s from cart", movie.Title), err)
 	}
 	return nil
 }
 
 func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
+	var messages []string
+	var returned int
+
 	movies, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
-		errWrap := fmt.Errorf("err returning movies. Failed to fetch movies from cloud: %w", err)
-		log.Println(errWrap)
-		return nil, 0, errWrap
+		return nil, 0, logError("fetching movies for return", err)
 	}
 
-	var returned int
-	var messages []string
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
-		errWrap := fmt.Errorf("failed to marshal username %s: %w", username, err)
-		log.Println(errWrap)
-		return nil, 0, errWrap
+		return nil, 0, logError("marshalling username", err)
 	}
+
 	for _, movie := range movies {
 		updateInput, err := r.getReturnInput(movie, name)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to get return input for movie %s\n:Err: %w", movie.ID, err)
-			log.Println(errWrap)
-			messages = append(messages, errWrap.Error())
+			messages = append(messages, logError(fmt.Sprintf("preparing return for %s", movie.Title), err).Error())
 			continue
 		}
-		ok, response, err := r.updateMember(ctx, username, updateInput)
+
+		ok, _, err := r.updateMember(ctx, username, updateInput)
 		if err != nil || !ok {
-			errWrap := fmt.Errorf("failed to return movie %s\nResponse: %v\nErr: %w", movie.ID, response, err)
-			log.Println(errWrap)
-			messages = append(messages, errWrap.Error())
+			messages = append(messages, logError(fmt.Sprintf("returning %s", movie.Title), err).Error())
 			continue
 		}
 
 		ok, err = r.MovieRepo.Return(ctx, movie)
 		if err != nil || !ok {
-			errWrap := fmt.Errorf("failed to update movie table %s\nResponse: %v\nErr: %w", movie.ID, response, err)
-			log.Println(errWrap)
-			messages = append(messages, errWrap.Error())
+			messages = append(messages, logError(fmt.Sprintf("updating inventory for %s", movie.Title), err).Error())
 			continue
 		}
 		returned++
 	}
 	return messages, returned, nil
-}
-
-func (r *MemberRepo) getReturnInput(movie data.Movie, name types.AttributeValue) (*dynamodb.UpdateItemInput, error) {
-
-	updateExpr := "DELETE checked_out :checked_out ADD rented :rented"
-	expressionAttrs := map[string]types.AttributeValue{
-		":checked_out": &types.AttributeValueMemberSS{
-			Value: []string{movie.ID},
-		},
-		":rented": &types.AttributeValueMemberSS{
-			Value: []string{movie.ID},
-		},
-	}
-	return &dynamodb.UpdateItemInput{
-		TableName:                 &r.tableName,
-		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
-		ExpressionAttributeValues: expressionAttrs,
-		ReturnValues:              types.ReturnValueUpdatedNew,
-		UpdateExpression:          &updateExpr,
-	}, nil
 }
 
 func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
@@ -290,4 +211,58 @@ func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice
 		return errWrap
 	}
 	return nil
+}
+
+func (r *MemberRepo) updateMember(ctx context.Context, username string, input *dynamodb.UpdateItemInput) (bool, *dynamodb.UpdateItemOutput, error) {
+	response, err := r.client.UpdateItem(ctx, input)
+	if err != nil {
+		return false, response, logError("updating member", err)
+	}
+	return true, response, nil
+}
+
+func (r *MemberRepo) getReturnInput(movie data.Movie, name types.AttributeValue) (*dynamodb.UpdateItemInput, error) {
+	expr := "DELETE checked_out :checked_out ADD rented :rented"
+	attrs := map[string]types.AttributeValue{
+		":checked_out": &types.AttributeValueMemberSS{Value: []string{movie.ID}},
+		":rented":      &types.AttributeValueMemberSS{Value: []string{movie.ID}},
+	}
+	return &dynamodb.UpdateItemInput{
+		TableName:                 &r.tableName,
+		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
+		ExpressionAttributeValues: attrs,
+		UpdateExpression:          &expr,
+		ReturnValues:              types.ReturnValueUpdatedNew,
+	}, nil
+}
+
+func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, map[string]types.AttributeValue) {
+	expr := fmt.Sprintf("%s cart :cart", updateKey)
+	attrs := map[string]types.AttributeValue{
+		":cart": &types.AttributeValueMemberSS{Value: []string{movieID}},
+	}
+	if checkingOut {
+		expr += " ADD checked_out :checked_out"
+		attrs[":checked_out"] = &types.AttributeValueMemberSS{Value: []string{movieID}}
+	}
+	return expr, attrs
+}
+
+func contains(list []string, item string) bool {
+	for _, v := range list {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
+
+func logError(msg string, err error) error {
+	if err == nil {
+		err = errors.New(msg)
+	} else {
+		err = fmt.Errorf("%s: %w", msg, err)
+	}
+	log.Println(err)
+	return err
 }

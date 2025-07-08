@@ -11,7 +11,7 @@ import (
 	repos "blockbuster/api/repos"
 )
 
-var movieRepo = repos.NewMovieRepo(GetDynamoClient())
+var movieRepo = repos.NewMovieRepo(repos.GetDynamoClient())
 
 const VALID_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#"
 

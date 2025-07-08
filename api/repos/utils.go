@@ -1,4 +1,4 @@
-package endpoints
+package repos
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	dynamoClient  *dynamodb.Client
-	once          sync.Once
+	dynamoClient *dynamodb.Client
+	once         sync.Once
 )
 
 func GetDynamoClient() *dynamodb.Client {
