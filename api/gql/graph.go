@@ -8,7 +8,6 @@ import (
 
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
-	"blockbuster/api/endpoints"
 	"blockbuster/api/repos"
 )
 
@@ -48,7 +47,7 @@ func NewMovieGraph() (*MovieGraph, error) {
 func populateCaches(g *MovieGraph) error {
 	// return nil
 	var errs []error
-	movieRepo := repos.NewMovieRepo(endpoints.GetDynamoClient())
+	movieRepo := repos.NewMovieRepoWithDynamo()
 	ctx := context.Background()
 	for _, page := range constants.PAGES {
 		movies, err := movieRepo.GetMoviesByPage(ctx, constants.FOR_GRAPH, string(page))
