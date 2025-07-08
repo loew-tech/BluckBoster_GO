@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	movieRepo  = repos.NewMovieRepo(repos.GetDynamoClient())
-	memberRepo = repos.NewMembersRepo(repos.GetDynamoClient(), repos.NewMovieRepo(repos.GetDynamoClient()))
+	movieRepo  = repos.NewMovieRepoWithDynamo()
+	memberRepo = repos.NewMemberRepoWithDynamo()
 	movieGraph *MovieGraph
 )
 

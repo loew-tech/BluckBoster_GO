@@ -47,7 +47,7 @@ func NewMovieGraph() (*MovieGraph, error) {
 func populateCaches(g *MovieGraph) error {
 	// return nil
 	var errs []error
-	movieRepo := repos.NewMovieRepo(repos.GetDynamoClient())
+	movieRepo := repos.NewMovieRepoWithDynamo()
 	ctx := context.Background()
 	for _, page := range constants.PAGES {
 		movies, err := movieRepo.GetMoviesByPage(ctx, constants.FOR_GRAPH, string(page))

@@ -11,7 +11,7 @@ import (
 	repos "blockbuster/api/repos"
 )
 
-var memberRepo = repos.NewMembersRepo(repos.GetDynamoClient(), repos.NewMovieRepo((repos.GetDynamoClient())))
+var memberRepo = repos.NewMemberRepoWithDynamo()
 
 func GetMemberEndpoint(c *gin.Context) {
 	member, err := memberRepo.GetMemberByUsername(c, c.Param("username"), constants.NOT_CART)
