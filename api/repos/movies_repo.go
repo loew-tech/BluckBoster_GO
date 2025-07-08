@@ -23,6 +23,7 @@ type MovieRepo struct {
 	tableName string
 }
 
+// @TODO: make this singleton
 func NewMovieRepo(client *dynamodb.Client) *MovieRepo {
 	return &MovieRepo{
 		client:    client,

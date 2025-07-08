@@ -185,23 +185,33 @@ func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []str
 }
 
 func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
+	if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
+		return utils.LogError(fmt.Sprintf("%S is not valid api selection. Choices: \"REST\" and \"GraphQL\""),
+			fmt.Errorf("unexpected API Choice: %s", apiChoice))
+	}
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
-		return utils.LogError("marshalling username", err)
+		return utils.LogError(fmt.Sprintf("failed to marshal username %s: %v", username, err), err)
+
 	}
-	expr := "SET api_choice = :api_choice"
-	attrs := map[string]types.AttributeValue{
-		":api_choice": &types.AttributeValueMemberS{Value: apiChoice},
+	updateExpr := "SET api_choice = :api_choice"
+	expressionAttrs := map[string]types.AttributeValue{
+		":api_choice": &types.AttributeValueMemberS{
+			Value: apiChoice,
+		},
 	}
-	input := &dynamodb.UpdateItemInput{
+	updateInput := &dynamodb.UpdateItemInput{
 		TableName:                 &r.tableName,
 		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
-		ExpressionAttributeValues: attrs,
-		UpdateExpression:          &expr,
+		ExpressionAttributeValues: expressionAttrs,
+		UpdateExpression:          &updateExpr,
 		ReturnValues:              types.ReturnValueUpdatedNew,
 	}
-	_, err = r.client.UpdateItem(ctx, input)
-	return utils.LogError("updating API choice", err)
+	_, err = r.client.UpdateItem(ctx, updateInput)
+	if err != nil {
+		return utils.LogError(fmt.Sprintf("failed to update member %s api choice: %w", username, err), err)
+	}
+	return nil
 }
 
 func (r *MemberRepo) updateMember(ctx context.Context, username string, input *dynamodb.UpdateItemInput) (bool, *dynamodb.UpdateItemOutput, error) {
