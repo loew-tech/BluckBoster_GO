@@ -19,14 +19,14 @@ const membersTableName = "BluckBoster_members"
 type MemberRepo struct {
 	client    *dynamodb.Client
 	tableName string
-	MovieRepo ReadWriteMovieRepo
+	movieRepo ReadWriteMovieRepo
 }
 
-func NewMembersRepo(client *dynamodb.Client, movieRepo ReadWriteMovieRepo) *MemberRepo {
+func newMembersRepo(client *dynamodb.Client, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
 	return &MemberRepo{
 		client:    client,
 		tableName: membersTableName,
-		MovieRepo: movieRepo,
+		movieRepo: movieRepo,
 	}
 }
 
@@ -69,7 +69,22 @@ func (r *MemberRepo) GetCartMovies(ctx context.Context, username string) ([]data
 	if len(user.Cart) == 0 {
 		return []data.Movie{}, nil
 	}
-	return r.MovieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
+	return r.movieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
+}
+
+func (r *MemberRepo) GetCheckedoutMovies(ctx context.Context, username string) ([]data.Movie, error) {
+	if username == "" {
+		return nil, errors.New("username is required to get checkout moves")
+	}
+	user, err := r.GetMemberByUsername(ctx, username, constants.CART)
+	if err != nil {
+		return nil, utils.LogError(fmt.Sprintf("Failed to get user for username %s", username), err)
+	}
+	movies, err := r.movieRepo.GetMoviesByID(ctx, user.Checkedout, constants.CART)
+	if err != nil {
+		return nil, utils.LogError(fmt.Sprintf("Error in fetching checkedout movies for %s", username), err)
+	}
+	return movies, nil
 }
 
 func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, *dynamodb.UpdateItemOutput, error) {
@@ -99,12 +114,76 @@ func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []s
 		return []string{"member limit exceeded"}, 0, nil
 	}
 
-	movies, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
+	movies, err := r.movieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
 		return nil, 0, utils.LogError("retrieving movies", err)
 	}
 
 	return r.performCheckout(ctx, user, movies)
+}
+
+func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
+	var messages []string
+	var returned int
+
+	movies, err := r.movieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
+	if err != nil {
+		return nil, 0, utils.LogError("fetching movies for return", err)
+	}
+
+	name, err := attributevalue.Marshal(username)
+	if err != nil {
+		return nil, 0, utils.LogError("marshalling username", err)
+	}
+
+	for _, movie := range movies {
+		updateInput, err := r.getReturnInput(movie, name)
+		if err != nil {
+			messages = append(messages, utils.LogError(fmt.Sprintf("preparing return for %s", movie.Title), err).Error())
+			continue
+		}
+
+		ok, _, err := r.updateMember(ctx, updateInput)
+		if err != nil || !ok {
+			messages = append(messages, utils.LogError(fmt.Sprintf("returning %s", movie.Title), err).Error())
+			continue
+		}
+
+		ok, err = r.movieRepo.Return(ctx, movie)
+		if err != nil || !ok {
+			messages = append(messages, utils.LogError(fmt.Sprintf("updating inventory for %s", movie.Title), err).Error())
+			continue
+		}
+		returned++
+	}
+	return messages, returned, nil
+}
+
+func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
+	if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
+		return utils.LogError(fmt.Sprintf("%s is not valid api selection. Choices: \"REST\" and \"GraphQL\"", apiChoice),
+			fmt.Errorf("unexpected API Choice: %s", apiChoice))
+	}
+	name, err := attributevalue.Marshal(username)
+	if err != nil {
+		return utils.LogError(fmt.Sprintf("failed to marshal username %s: %v", username, err), err)
+	}
+	updateExpr := "SET api_choice = :api_choice"
+	expressionAttrs := map[string]types.AttributeValue{
+		":api_choice": &types.AttributeValueMemberS{Value: apiChoice},
+	}
+	updateInput := &dynamodb.UpdateItemInput{
+		TableName:                 &r.tableName,
+		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
+		ExpressionAttributeValues: expressionAttrs,
+		UpdateExpression:          &updateExpr,
+		ReturnValues:              types.ReturnValueUpdatedNew,
+	}
+	_, err = r.client.UpdateItem(ctx, updateInput)
+	if err != nil {
+		return utils.LogError(fmt.Sprintf("failed to update member %s api choice: %v", username, err), err)
+	}
+	return nil
 }
 
 func (r *MemberRepo) performCheckout(ctx context.Context, user data.Member, movies []data.Movie) ([]string, int, error) {
@@ -134,82 +213,15 @@ func (r *MemberRepo) performCheckout(ctx context.Context, user data.Member, movi
 }
 
 func (r *MemberRepo) checkoutMovie(ctx context.Context, user data.Member, movie data.Movie) error {
-	ok, err := r.MovieRepo.Rent(ctx, movie)
+	ok, err := r.movieRepo.Rent(ctx, movie)
 	if err != nil || !ok {
 		return utils.LogError(fmt.Sprintf("renting %s", movie.Title), err)
 	}
 
 	ok, _, err = r.ModifyCart(ctx, user.Username, movie.ID, constants.DELETE, constants.CHECKOUT)
 	if err != nil || !ok {
-		r.MovieRepo.Return(ctx, movie)
+		r.movieRepo.Return(ctx, movie)
 		return utils.LogError(fmt.Sprintf("removing %s from cart", movie.Title), err)
-	}
-	return nil
-}
-
-func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
-	var messages []string
-	var returned int
-
-	movies, err := r.MovieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
-	if err != nil {
-		return nil, 0, utils.LogError("fetching movies for return", err)
-	}
-
-	name, err := attributevalue.Marshal(username)
-	if err != nil {
-		return nil, 0, utils.LogError("marshalling username", err)
-	}
-
-	for _, movie := range movies {
-		updateInput, err := r.getReturnInput(movie, name)
-		if err != nil {
-			messages = append(messages, utils.LogError(fmt.Sprintf("preparing return for %s", movie.Title), err).Error())
-			continue
-		}
-
-		ok, _, err := r.updateMember(ctx, updateInput)
-		if err != nil || !ok {
-			messages = append(messages, utils.LogError(fmt.Sprintf("returning %s", movie.Title), err).Error())
-			continue
-		}
-
-		ok, err = r.MovieRepo.Return(ctx, movie)
-		if err != nil || !ok {
-			messages = append(messages, utils.LogError(fmt.Sprintf("updating inventory for %s", movie.Title), err).Error())
-			continue
-		}
-		returned++
-	}
-	return messages, returned, nil
-}
-
-func (r *MemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
-	if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
-		return utils.LogError(fmt.Sprintf("%s is not valid api selection. Choices: \"REST\" and \"GraphQL\"", apiChoice),
-			fmt.Errorf("unexpected API Choice: %s", apiChoice))
-	}
-	name, err := attributevalue.Marshal(username)
-	if err != nil {
-		return utils.LogError(fmt.Sprintf("failed to marshal username %s: %v", username, err), err)
-
-	}
-	updateExpr := "SET api_choice = :api_choice"
-	expressionAttrs := map[string]types.AttributeValue{
-		":api_choice": &types.AttributeValueMemberS{
-			Value: apiChoice,
-		},
-	}
-	updateInput := &dynamodb.UpdateItemInput{
-		TableName:                 &r.tableName,
-		Key:                       map[string]types.AttributeValue{constants.USERNAME: name},
-		ExpressionAttributeValues: expressionAttrs,
-		UpdateExpression:          &updateExpr,
-		ReturnValues:              types.ReturnValueUpdatedNew,
-	}
-	_, err = r.client.UpdateItem(ctx, updateInput)
-	if err != nil {
-		return utils.LogError(fmt.Sprintf("failed to update member %s api choice: %v", username, err), err)
 	}
 	return nil
 }

@@ -23,7 +23,7 @@ type DynamoMovieRepo struct {
 	tableName string
 }
 
-func NewDynamoMovieRepo(client *dynamodb.Client) *DynamoMovieRepo {
+func newDynamoMovieRepo(client *dynamodb.Client) *DynamoMovieRepo {
 	return &DynamoMovieRepo{
 		client:    client,
 		tableName: movieTableName,
