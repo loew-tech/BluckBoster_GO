@@ -80,4 +80,8 @@ const (
 	API_CHOICE  = "api_choice"
 	REST_API    = "REST"
 	GRAPHQL_API = "GraphQL"
+
+	// Router group
+	REST_ROUTER_GROUP = "/api/v1"
+	GRAPHQL_ENDPOINT = "/graphql/v1"
 )
