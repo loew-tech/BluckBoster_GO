@@ -87,6 +87,7 @@ func (r *MemberRepo) GetCheckedoutMovies(ctx context.Context, username string) (
 	return movies, nil
 }
 
+// @TODO: remove second return. It's not used anywhere
 func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, *dynamodb.UpdateItemOutput, error) {
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
