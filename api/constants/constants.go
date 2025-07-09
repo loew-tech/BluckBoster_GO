@@ -45,7 +45,6 @@ const (
 	CHECKOUT_STRING     = "Checkout"
 	MOVIE_ID            = "movieID"
 	MOVIE_IDS           = "movieIDs"
-	PAGE                = "page"
 	GET_MOVIES          = "GetMovies"
 	GET_MOVIE           = "GetMovie"
 	GET_CHECKEDOUT      = "GetCheckedout"
@@ -72,6 +71,8 @@ const (
 	NOT_FOR_GRAPH       = false
 
 	// AWS
+	PAGE               = "page"
+	DEFAULT_PAGE       = "A"
 	PAGINATE_KEY       = "paginate_key"
 	PAGINATE_KEY_INDEX = "paginate_key-index"
 	PAGES              = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -83,5 +84,5 @@ const (
 
 	// Router group
 	REST_ROUTER_GROUP = "/api/v1"
-	GRAPHQL_ENDPOINT = "/graphql/v1"
+	GRAPHQL_ENDPOINT  = "/graphql/v1"
 )
