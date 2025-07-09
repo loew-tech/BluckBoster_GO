@@ -30,7 +30,7 @@ func (h *MoviesHandler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *MoviesHandler) GetMoviesByPage(c *gin.Context) {
-	pageKey := strings.ToUpper(c.DefaultQuery("page", "A"))
+	pageKey := strings.ToUpper(c.DefaultQuery(constants.PAGE, constants.DEFAULT_PAGE))
 	if pageKey == "" {
 		log.Println("Missing 'page' query parameter")
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing page query parameter"})
@@ -51,7 +51,7 @@ func (h *MoviesHandler) GetMoviesByPage(c *gin.Context) {
 }
 
 func (h *MoviesHandler) GetMovie(c *gin.Context) {
-	id := c.Param("movieID")
+	id := c.Param(constants.MOVIE_ID)
 	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing movieID parameter"})
 		return
@@ -67,7 +67,7 @@ func (h *MoviesHandler) GetMovie(c *gin.Context) {
 }
 
 func (h *MoviesHandler) GetTrivia(c *gin.Context) {
-	id := c.Param("movieID")
+	id := c.Param(constants.MOVIE_ID)
 	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing movieID parameter"})
 		return

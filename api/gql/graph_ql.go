@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -79,12 +80,15 @@ func getQueries() graphql.Fields {
 			Args: graphql.FieldConfigArgument{
 				constants.PAGE: &graphql.ArgumentConfig{
 					Type:         graphql.String,
-					DefaultValue: "A",
+					DefaultValue: constants.DEFAULT_PAGE,
 				},
 				constants.DIRECTOR: directorArg,
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				page := p.Args[constants.PAGE].(string)
+				if !strings.Contains(constants.PAGES, page) {
+					return nil, fmt.Errorf("%s is not a valid page: %s", page, constants.PAGES)
+				}
 				ctx, err := getContext(p)
 				if err != nil {
 					return nil, err
@@ -225,7 +229,6 @@ func getQueries() graphql.Fields {
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				director := p.Args[constants.DIRECTOR].(string)
-				fmt.Println("Director=", director)
 				return movieGraph.GetDirectedActors(director), nil
 			},
 		},

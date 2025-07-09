@@ -36,7 +36,7 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Param(constants.USERNAME)
 	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
 		return
@@ -74,7 +74,7 @@ func (h *MembersHandler) Login(c *gin.Context) {
 }
 
 func (h *MembersHandler) GetCartIDs(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Param(constants.USERNAME)
 	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
 		return
@@ -88,7 +88,7 @@ func (h *MembersHandler) GetCartIDs(c *gin.Context) {
 }
 
 func (h *MembersHandler) GetCartMovies(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Param(constants.USERNAME)
 	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
 		return
@@ -172,7 +172,7 @@ func (h *MembersHandler) handleInventoryAction(
 }
 
 func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Param(constants.USERNAME)
 	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
 		return
@@ -191,12 +191,12 @@ func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
 }
 
 func (h *MembersHandler) SetAPIChoice(c *gin.Context) {
-	username := c.Param("username")
+	username := c.Param(constants.USERNAME)
 	if username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
 		return
 	}
-	apiChoice := c.Query("api_choice")
+	apiChoice := c.Query(constants.API_CHOICE)
 	if apiChoice == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing api_choice parameter"})
 		return
