@@ -2,23 +2,18 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 
-	"blockbuster/api/constants"
-	"blockbuster/api/repos"
 	"blockbuster/api/services"
 )
 
 type MembersHandler struct {
-	repo    repos.MemberRepoInterface
 	service *services.MembersService
 }
 
 func NewMembersHandler() *MembersHandler {
 	return &MembersHandler{
-		repo:    repos.NewMemberRepoWithDynamo(),
 		service: services.GetMemberService(),
 	}
 }
@@ -110,42 +105,19 @@ func (h *MembersHandler) Return(c *gin.Context) {
 }
 
 func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
-	username := c.Param(constants.USERNAME)
-	if username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
-		return
-	}
-	_, err := h.repo.GetMemberByUsername(c, username, constants.CART)
+	status, movies, err := h.service.GetCheckedOutMovies(c)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve user"})
+		c.IndentedJSON(status, gin.H{"msg": err.Error()})
 		return
 	}
-	movies, err := h.repo.GetCheckedoutMovies(c, username)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"msg": "Failed to retrieve checked out movies"})
-		return
-	}
-	c.JSON(http.StatusOK, movies)
+	c.JSON(status, movies)
 }
 
 func (h *MembersHandler) SetAPIChoice(c *gin.Context) {
-	username := c.Param(constants.USERNAME)
-	if username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
+	status, apiChoice, err := h.service.SetAPIChoice(c)
+	if err != nil {
+		c.JSON(status, gin.H{"msg": err.Error()})
 		return
 	}
-	apiChoice := c.Query(constants.API_CHOICE)
-	if apiChoice == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing api_choice parameter"})
-		return
-	}
-	if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid API choice"})
-		return
-	}
-	if err := h.repo.SetMemberAPIChoice(c, username, apiChoice); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to update API choice"})
-		return
-	}
-	c.JSON(http.StatusAccepted, gin.H{"msg": fmt.Sprintf("API choice set to %s", apiChoice)})
+	c.JSON(status, gin.H{"msg": fmt.Sprintf("API choice set to %s", apiChoice)})
 }

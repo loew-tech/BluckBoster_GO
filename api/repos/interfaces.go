@@ -27,7 +27,7 @@ type ReadWriteMovieRepo interface {
 type MemberRepoInterface interface {
 	GetMemberByUsername(ctx context.Context, username string, cartOnly bool) (data.Member, error)
 	GetCartMovies(ctx context.Context, username string) ([]data.Movie, error)
-	GetCheckedoutMovies(ctx context.Context, username string) ([]data.Movie, error)
+	GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error)
 	ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, *dynamodb.UpdateItemOutput, error)
 	Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
 	Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error)

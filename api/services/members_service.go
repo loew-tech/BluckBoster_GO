@@ -140,3 +140,30 @@ func (s *MembersService) handleInventoryAction(
 	}
 	return status, msgs, modifiedCount, nil
 }
+
+func (s *MembersService) GetCheckedOutMovies(c *gin.Context) (int, []data.Movie, error) {
+	username, err := utils.GetStringArg(c.Params, constants.USERNAME)
+	if err != nil {
+		return http.StatusBadRequest, nil, err
+	}
+	movies, err := s.repo.GetCheckedOutMovies(c, username)
+	if err != nil {
+		return http.StatusInternalServerError, nil, fmt.Errorf("Failed to retrieve checked out movies for %s", username)
+	}
+	return http.StatusAccepted, movies, nil
+}
+
+func (s *MembersService) SetAPIChoice(c *gin.Context) (int, string, error) {
+	username, err := utils.GetStringArg(c.Params, constants.USERNAME)
+	if err != nil {
+		return http.StatusBadRequest, "", errors.New("missing param 'username'")
+	}
+	apiChoice := c.Query(constants.API_CHOICE)
+	if apiChoice == "" || (apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API) {
+		return http.StatusBadRequest, "", fmt.Errorf("Invalid api choice for %s. Selected '%s' but must be '%s' or '%s'", username, apiChoice, constants.REST_API, constants.GRAPHQL_API)
+	}
+	if err := s.repo.SetMemberAPIChoice(c, username, apiChoice); err != nil {
+		return http.StatusInternalServerError, "", fmt.Errorf("Failed to set %s api selection to %s", username, apiChoice)
+	}
+	return http.StatusAccepted, apiChoice, nil
+}
