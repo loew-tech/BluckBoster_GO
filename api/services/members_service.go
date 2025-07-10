@@ -1,16 +1,18 @@
 package services
 
 import (
-	"blockbuster/api/constants"
-	"blockbuster/api/data"
-	"blockbuster/api/repos"
-	"blockbuster/api/utils"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/gin-gonic/gin"
+
+	"blockbuster/api/constants"
+	"blockbuster/api/data"
+	"blockbuster/api/repos"
+	"blockbuster/api/utils"
 )
 
 // @TODO: write interfaces
@@ -80,7 +82,7 @@ func (s *MembersService) GetCartMovies(c *gin.Context) (int, []data.Movie, error
 	return http.StatusOK, movies, nil
 }
 
-func (s *MembersService) AddToCart (c *gin.Context) (int, error) {
+func (s *MembersService) AddToCart(c *gin.Context) (int, error) {
 	return s.modifyCart(c, constants.ADD, constants.NOT_CHECKOUT)
 }
 
@@ -105,4 +107,36 @@ func (s *MembersService) modifyCart(c *gin.Context, action string, checkingOut b
 		status = http.StatusAccepted
 	}
 	return status, err
+}
+
+func (s MembersService) Checkout(c *gin.Context) (int, []string, int, error) {
+	return s.handleInventoryAction(c, s.repo.Checkout)
+}
+
+func (s *MembersService) Return(c *gin.Context) (int, []string, int, error) {
+	return s.handleInventoryAction(c, s.repo.Return)
+}
+
+func (s *MembersService) handleInventoryAction(
+	c *gin.Context,
+	f func(context.Context, string, []string) ([]string, int, error),
+
+) (int, []string, int, error) {
+	var req struct {
+		Username string   `json:"username"`
+		MovieIDs []string `json:"movie_ids"`
+	}
+	if err := c.BindJSON(&req); err != nil || req.Username == "" || len(req.MovieIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+		return http.StatusBadRequest, nil, 0, utils.LogError("Invalid inventory request", err)
+	}
+	msgs, modifiedCount, err := f(c, req.Username, req.MovieIDs)
+	if err != nil {
+		return http.StatusInternalServerError, nil, 0, fmt.Errorf("failed to update inventory for %s", req.Username)
+	}
+	status := http.StatusOK
+	if 0 < modifiedCount {
+		status = http.StatusAccepted
+	}
+	return status, msgs, modifiedCount, nil
 }

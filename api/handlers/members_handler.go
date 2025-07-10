@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -42,6 +41,7 @@ func (h *MembersHandler) GetMember(c *gin.Context) {
 	status, member, err := h.service.GetMember(c)
 	if err != nil {
 		c.JSON(status, gin.H{"msg": err.Error()})
+		return
 	}
 	c.JSON(status, member)
 }
@@ -77,6 +77,7 @@ func (h *MembersHandler) AddToCart(c *gin.Context) {
 	status, err := h.service.AddToCart(c)
 	if err != nil {
 		c.JSON(status, gin.H{"msg": err.Error()})
+		return
 	}
 	c.JSON(status, gin.H{"msg": "success"})
 }
@@ -85,44 +86,27 @@ func (h *MembersHandler) RemoveFromCart(c *gin.Context) {
 	status, err := h.service.RemoveFromCart(c)
 	if err != nil {
 		c.JSON(status, gin.H{"msg": err.Error()})
+		return
 	}
 	c.JSON(status, gin.H{"msg": "success"})
 }
 
 func (h *MembersHandler) Checkout(c *gin.Context) {
-	h.handleInventoryAction(c, h.repo.Checkout)
+	status, msgs, modifiedCount, err := h.service.Checkout(c)
+	if err != nil {
+		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		return
+	}
+	c.IndentedJSON(status, gin.H{"msgs": msgs, "Modified": modifiedCount})
 }
 
 func (h *MembersHandler) Return(c *gin.Context) {
-	h.handleInventoryAction(c, h.repo.Return)
-}
-
-func (h *MembersHandler) handleInventoryAction(
-	c *gin.Context,
-	f func(context.Context, string, []string) ([]string, int, error),
-) {
-	var req struct {
-		Username string   `json:"username"`
-		MovieIDs []string `json:"movie_ids"`
-	}
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
-		return
-	}
-	if len(req.MovieIDs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "No movie_ids provided"})
-		return
-	}
-	msgs, count, err := f(c, req.Username, req.MovieIDs)
+	status, msgs, modifiedCount, err := h.service.Return(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to process inventory"})
+		c.IndentedJSON(status, gin.H{"msg": err.Error()})
 		return
 	}
-	status := http.StatusAccepted
-	if count == 0 {
-		status = http.StatusNotModified
-	}
-	c.JSON(status, gin.H{"messages": msgs, "movies_processed": count})
+	c.IndentedJSON(status, gin.H{"msgs": msgs, "Modified": modifiedCount})
 }
 
 func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
