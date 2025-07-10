@@ -9,15 +9,18 @@ import (
 
 	"blockbuster/api/constants"
 	"blockbuster/api/repos"
+	"blockbuster/api/services"
 )
 
 type MembersHandler struct {
-	repo repos.MemberRepoInterface
+	repo    repos.MemberRepoInterface
+	service *services.MembersService
 }
 
 func NewMembersHandler() *MembersHandler {
 	return &MembersHandler{
-		repo: repos.NewMemberRepoWithDynamo(),
+		repo:    repos.NewMemberRepoWithDynamo(),
+		service: services.GetMemberService(),
 	}
 }
 
@@ -36,103 +39,54 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
-	username := c.Param(constants.USERNAME)
-	if username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
-		return
-	}
-	member, err := h.repo.GetMemberByUsername(c, username, constants.NOT_CART)
+	status, member, err := h.service.GetMember(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user"})
-		return
+		c.JSON(status, gin.H{"msg": err.Error()})
 	}
-	if member.Username == "" {
-		c.JSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("User %s not found", username)})
-		return
-	}
-	c.JSON(http.StatusOK, member)
+	c.JSON(status, member)
 }
 
 func (h *MembersHandler) Login(c *gin.Context) {
-	var req struct {
-		Username string `json:"username"`
-	}
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+	status, member, err := h.service.Login(c)
+	if err != nil {
+		c.IndentedJSON(status, gin.H{"msg": err.Error()})
 		return
 	}
-	if req.Username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username in request body"})
-		return
-	}
-	member, err := h.repo.GetMemberByUsername(c, req.Username, constants.NOT_CART)
-	if err != nil || member.Username == "" {
-		c.JSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("User %s not found", req.Username)})
-		return
-	}
-	c.JSON(http.StatusOK, member)
+	c.IndentedJSON(status, member)
 }
 
 func (h *MembersHandler) GetCartIDs(c *gin.Context) {
-	username := c.Param(constants.USERNAME)
-	if username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
-		return
-	}
-	user, err := h.repo.GetMemberByUsername(c, username, constants.CART)
+	status, cartIDs, err := h.service.GetCartIDs(c)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"msg": "Cart not found"})
+		c.IndentedJSON(status, gin.H{"msg": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, user.Cart)
+	c.IndentedJSON(status, cartIDs)
 }
 
 func (h *MembersHandler) GetCartMovies(c *gin.Context) {
-	username := c.Param(constants.USERNAME)
-	if username == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing username parameter"})
-		return
-	}
-	movies, err := h.repo.GetCartMovies(c, username)
+	status, movies, err := h.service.GetCartMovies(c)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"msg": "Failed to retrieve cart movies"})
+		c.IndentedJSON(status, gin.H{"msg": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, movies)
+	c.JSON(status, movies)
 }
 
 func (h *MembersHandler) AddToCart(c *gin.Context) {
-	h.modifyCart(c, constants.ADD, false)
+	status, err := h.service.AddToCart(c)
+	if err != nil {
+		c.JSON(status, gin.H{"msg": err.Error()})
+	}
+	c.JSON(status, gin.H{"msg": "success"})
 }
 
 func (h *MembersHandler) RemoveFromCart(c *gin.Context) {
-	h.modifyCart(c, constants.DELETE, false)
-}
-
-func (h *MembersHandler) modifyCart(c *gin.Context, action string, checkingOut bool) {
-	var req struct {
-		Username string `json:"username"`
-		MovieID  string `json:"movie_id"`
-	}
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid cart request"})
-		return
-	}
-	if req.MovieID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing movie_id parameter"})
-		return
-	}
-
-	inserted, response, err := h.repo.ModifyCart(c, req.Username, req.MovieID, action, checkingOut)
+	status, err := h.service.RemoveFromCart(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": "Cart modification failed"})
-		return
+		c.JSON(status, gin.H{"msg": err.Error()})
 	}
-	if !inserted {
-		c.JSON(http.StatusNotModified, gin.H{"msg": "No changes made to cart"})
-		return
-	}
-	c.JSON(http.StatusAccepted, response)
+	c.JSON(status, gin.H{"msg": "success"})
 }
 
 func (h *MembersHandler) Checkout(c *gin.Context) {
