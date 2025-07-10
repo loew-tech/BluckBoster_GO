@@ -72,7 +72,7 @@ func (r *MemberRepo) GetCartMovies(ctx context.Context, username string) ([]data
 	return r.movieRepo.GetMoviesByID(ctx, user.Cart, constants.CART)
 }
 
-func (r *MemberRepo) GetCheckedoutMovies(ctx context.Context, username string) ([]data.Movie, error) {
+func (r *MemberRepo) GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error) {
 	if username == "" {
 		return nil, errors.New("username is required to get checkout moves")
 	}

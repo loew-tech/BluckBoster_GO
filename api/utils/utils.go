@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -48,4 +49,15 @@ func Contains(list []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// GetStringArg safely extracts a required string arg from the resolver params.
+func GetStringArg(params gin.Params, argName string) (string, error) {
+	val, ok := params.Get(argName)
+	if !ok || val == "" {
+		msg := fmt.Sprintf("%s argument is required", argName)
+		log.Println(msg)
+		return "", errors.New(msg)
+	}
+	return val, nil
 }
