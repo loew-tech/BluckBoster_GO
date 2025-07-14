@@ -121,7 +121,7 @@ var SetAPIChoiceField = &graphql.Field{
 		},
 	},
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-		username, err := getStringArg(p, constants.USERNAME, "setAPIChoice")
+		username, err := getStringArg(p, constants.USERNAME, constants.SET_API_CHOICE)
 		if err != nil {
 			return nil, err
 		}

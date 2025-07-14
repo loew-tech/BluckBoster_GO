@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,12 +42,12 @@ func (h *MembersHandler) GetMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}
-	status, member, err := h.service.GetMember(c.Request.Context(), username)
+	member, err := h.service.GetMember(c.Request.Context(), username)
 	if err != nil {
-		c.JSON(status, gin.H{"msg": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("error occured retrieving user %s", username)})
 		return
 	}
-	c.JSON(status, member)
+	c.JSON(http.StatusOK, member)
 }
 
 func (h *MembersHandler) Login(c *gin.Context) {
@@ -57,12 +58,16 @@ func (h *MembersHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid value for field 'username'"})
 		return
 	}
-	status, member, err := h.service.Login(c.Request.Context(), req.Username)
+	member, err := h.service.Login(c.Request.Context(), req.Username)
 	if err != nil {
-		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("error logging in as user %s", req.Username)})
 		return
 	}
-	c.IndentedJSON(status, member)
+	if member.Username == "" {
+		c.JSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("failed logging in as user %s", req.Username)})
+		return
+	}
+	c.IndentedJSON(http.StatusOK, member)
 }
 
 func (h *MembersHandler) GetCartIDs(c *gin.Context) {
@@ -71,12 +76,12 @@ func (h *MembersHandler) GetCartIDs(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}
-	status, cartIDs, err := h.service.GetCartIDs(c.Request.Context(), username)
+	cartIDs, err := h.service.GetCartIDs(c.Request.Context(), username)
 	if err != nil {
-		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		c.IndentedJSON(http.StatusNotFound, gin.H{"msg": err.Error()})
 		return
 	}
-	c.IndentedJSON(status, cartIDs)
+	c.IndentedJSON(http.StatusOK, cartIDs)
 }
 
 func (h *MembersHandler) GetCartMovies(c *gin.Context) {
@@ -86,12 +91,12 @@ func (h *MembersHandler) GetCartMovies(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}
-	status, movies, err := h.service.GetCartMovies(c.Request.Context(), username)
+	movies, err := h.service.GetCartMovies(c.Request.Context(), username)
 	if err != nil {
-		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("Failed to retrieve cart movies for %s", username)})
 		return
 	}
-	c.JSON(status, movies)
+	c.JSON(http.StatusOK, movies)
 }
 
 func (h *MembersHandler) AddToCart(c *gin.Context) {
@@ -100,16 +105,19 @@ func (h *MembersHandler) AddToCart(c *gin.Context) {
 		MovieID  string `json:"movie_id"`
 	}
 	if err := c.BindJSON(&req); err != nil || req.Username == "" || req.MovieID == "" {
-		// return http.StatusBadRequest, utils.LogError("Invalid modify cart request", nil)
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid modify cart request; username and movie_id must be provided"})
 		return
 	}
-	status, err := h.service.AddToCart(c, req.Username, req.MovieID)
+	modified, err := h.service.AddToCart(c, req.Username, req.MovieID)
 	if err != nil {
-		c.JSON(status, gin.H{"msg": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
 	}
-	c.JSON(status, gin.H{"msg": "success"})
+	if modified {
+		c.JSON(http.StatusAccepted, gin.H{"msg": "success"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "success"})
 }
 
 func (h *MembersHandler) RemoveFromCart(c *gin.Context) {
@@ -118,16 +126,19 @@ func (h *MembersHandler) RemoveFromCart(c *gin.Context) {
 		MovieID  string `json:"movie_id"`
 	}
 	if err := c.BindJSON(&req); err != nil || req.Username == "" || req.MovieID == "" {
-		// return http.StatusBadRequest, utils.LogError("Invalid modify cart request", nil)
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid modify cart request; username and movie_id must be provided"})
 		return
 	}
-	status, err := h.service.RemoveFromCart(c.Request.Context(), req.Username, req.MovieID)
+	modified, err := h.service.RemoveFromCart(c.Request.Context(), req.Username, req.MovieID)
 	if err != nil {
-		c.JSON(status, gin.H{"msg": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
 	}
-	c.JSON(status, gin.H{"msg": "success"})
+	if modified {
+		c.JSON(http.StatusAccepted, gin.H{"msg": "success"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"msg": "success"})
 }
 
 func (h *MembersHandler) Checkout(c *gin.Context) {
@@ -139,12 +150,12 @@ func (h *MembersHandler) Checkout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires username and movie_ids"})
 		return
 	}
-	status, msgs, modifiedCount, err := h.service.Checkout(c, req.Username, req.MovieIDs)
+	msgs, modifiedCount, err := h.service.Checkout(c, req.Username, req.MovieIDs)
 	if err != nil {
-		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
 	}
-	c.IndentedJSON(status, gin.H{"msgs": msgs, "Modified": modifiedCount})
+	c.IndentedJSON(http.StatusAccepted, gin.H{"msgs": msgs, "Modified": modifiedCount})
 }
 
 func (h *MembersHandler) Return(c *gin.Context) {
@@ -156,12 +167,12 @@ func (h *MembersHandler) Return(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires username and movie_ids"})
 		return
 	}
-	status, msgs, modifiedCount, err := h.service.Return(c, req.Username, req.MovieIDs)
+	msgs, modifiedCount, err := h.service.Return(c, req.Username, req.MovieIDs)
 	if err != nil {
-		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
 	}
-	c.IndentedJSON(status, gin.H{"msgs": msgs, "Modified": modifiedCount})
+	c.IndentedJSON(http.StatusAccepted, gin.H{"msgs": msgs, "Modified": modifiedCount})
 }
 
 func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
@@ -169,31 +180,31 @@ func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
-		// return http.StatusBadRequest, nil, err
 	}
-	status, movies, err := h.service.GetCheckedOutMovies(c.Request.Context(), username)
+	movies, err := h.service.GetCheckedOutMovies(c.Request.Context(), username)
 	if err != nil {
-		c.IndentedJSON(status, gin.H{"msg": err.Error()})
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
 	}
-	c.JSON(status, movies)
+	c.JSON(http.StatusOK, movies)
 }
 
 func (h *MembersHandler) SetAPIChoice(c *gin.Context) {
 	username, err := utils.GetStringArg(c.Params, constants.USERNAME)
 	if err != nil {
+		log.Println("^^ REST ^^ early out 1", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}
 	apiChoice := c.Query(constants.API_CHOICE)
+	log.Println("**DEBUG**", username, apiChoice)
 	if apiChoice == "" || (apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid api selection '%s'; must be 'REST' or 'GraphQL'", apiChoice)})
 		return
 	}
-	status, apiChoice, err := h.service.SetAPIChoice(c.Request.Context(), username, apiChoice)
-	if err != nil {
-		c.JSON(status, gin.H{"msg": err.Error()})
+	if err = h.service.SetAPIChoice(c.Request.Context(), username, apiChoice); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
 	}
-	c.JSON(status, gin.H{"msg": fmt.Sprintf("API choice set to %s", apiChoice)})
+	c.JSON(http.StatusOK, gin.H{"msg": fmt.Sprintf("API choice set to %s", apiChoice)})
 }
