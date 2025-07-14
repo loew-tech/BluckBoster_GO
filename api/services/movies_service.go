@@ -12,7 +12,7 @@ import (
 )
 
 type MoviesService struct {
-	repo repos.ReadWriteMovieRepo
+	repo repos.MovieReadRepo
 }
 
 var (

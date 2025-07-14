@@ -13,12 +13,12 @@ import (
 )
 
 type MoviesHandler struct {
-	service services.MoviesService
+	service services.MoviesServiceInterface
 }
 
 func NewMoviesHandler() *MoviesHandler {
 	return &MoviesHandler{
-		service: *services.GetMovieService(),
+		service: services.GetMovieService(),
 	}
 }
 

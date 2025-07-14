@@ -18,3 +18,9 @@ type MembersServiceInterface interface {
 	GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error)
 	SetAPIChoice(ctx context.Context, username, apiChoice string) error
 }
+
+type MoviesServiceInterface interface {
+	GetMoviesByPage(ctx context.Context, page string) ([]data.Movie, error)
+	GetMovie(ctx context.Context, movieID string) (data.Movie, error)
+	GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error)
+}
