@@ -30,7 +30,7 @@ func newDynamoMovieRepo(client *dynamodb.Client) *DynamoMovieRepo {
 	}
 }
 
-func (r *DynamoMovieRepo) GetMoviesByPage(ctx context.Context, forGraph bool, page string) ([]data.Movie, error) {
+func (r *DynamoMovieRepo) GetMoviesByPage(ctx context.Context, page string, forGraph bool) ([]data.Movie, error) {
 	expr := "#i, title, #c, director"
 	exprAttrNames := map[string]string{
 		"#i": constants.ID,

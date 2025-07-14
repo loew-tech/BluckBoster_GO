@@ -14,7 +14,8 @@ import (
 var GetKevinBaconField = &graphql.Field{
 	Type: KevingBaconType,
 	Args: graphql.FieldConfigArgument{
-		constants.STAR:     starArg,
+		constants.STAR: starArg,
+		// @TODO: change this to use string and graph to key on title instead of id
 		constants.MOVIE:    movieIDArg,
 		constants.DIRECTOR: directorArg,
 		constants.DEPTH:    &graphql.ArgumentConfig{Type: graphql.Int, DefaultValue: 1},

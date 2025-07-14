@@ -31,7 +31,7 @@ var GetMoviesField = &graphql.Field{
 		if err != nil {
 			return nil, err
 		}
-		movies, err := movieRepo.GetMoviesByPage(ctx, constants.NOT_FOR_GRAPH, page)
+		movies, err := movieRepo.GetMoviesByPage(ctx, page, constants.NOT_FOR_GRAPH)
 		if err != nil {
 			errWrap := fmt.Errorf("failed to retrieve movies for page %s: %w", page, err)
 			log.Println(errWrap)

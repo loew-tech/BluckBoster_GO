@@ -6,7 +6,6 @@ import (
 	"blockbuster/api/data"
 )
 
-// @TODO: remove status return?
 type MembersServiceInterface interface {
 	GetMember(ctx context.Context, username string) (data.Member, error)
 	Login(ctx context.Context, username string) (data.Member, error)

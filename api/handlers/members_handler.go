@@ -107,7 +107,7 @@ func (h *MembersHandler) AddToCart(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid modify cart request; username and movie_id must be provided"})
 		return
 	}
-	modified, err := h.service.AddToCart(c, req.Username, req.MovieID)
+	modified, err := h.service.AddToCart(c.Request.Context(), req.Username, req.MovieID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
@@ -149,7 +149,7 @@ func (h *MembersHandler) Checkout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires username and movie_ids"})
 		return
 	}
-	msgs, modifiedCount, err := h.service.Checkout(c, req.Username, req.MovieIDs)
+	msgs, modifiedCount, err := h.service.Checkout(c.Request.Context(), req.Username, req.MovieIDs)
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return
@@ -166,7 +166,7 @@ func (h *MembersHandler) Return(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires username and movie_ids"})
 		return
 	}
-	msgs, modifiedCount, err := h.service.Return(c, req.Username, req.MovieIDs)
+	msgs, modifiedCount, err := h.service.Return(c.Request.Context(), req.Username, req.MovieIDs)
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 		return

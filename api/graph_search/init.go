@@ -51,7 +51,7 @@ func populateCaches(g *MovieGraph) error {
 	ctx := context.Background()
 
 	for _, page := range constants.PAGES {
-		movies, err := movieRepo.GetMoviesByPage(ctx, constants.FOR_GRAPH, string(page))
+		movies, err := movieRepo.GetMoviesByPage(ctx, string(page), constants.FOR_GRAPH)
 		if err != nil {
 			log.Printf("Error fetching movies for page %v: %v\n", page, err)
 			errs = append(errs, err)

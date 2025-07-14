@@ -11,21 +11,20 @@ import (
 	"blockbuster/api/utils"
 )
 
-// @TODO: write interfaces
 type MembersService struct {
 	repo repos.MemberRepoInterface
 }
 
 var (
 	instantiateServiceOnce sync.Once
-	service                *MembersService
+	membersService         *MembersService
 )
 
 func GetMemberService() *MembersService {
 	instantiateServiceOnce.Do(func() {
-		service = &MembersService{repo: repos.NewMemberRepoWithDynamo()}
+		membersService = &MembersService{repo: repos.NewMemberRepoWithDynamo()}
 	})
-	return service
+	return membersService
 }
 
 func (s *MembersService) GetMember(c context.Context, username string) (data.Member, error) {
