@@ -13,7 +13,7 @@ import (
 )
 
 type MembersHandler struct {
-	service *services.MembersService
+	service services.MembersServiceInterface
 }
 
 func NewMembersHandler() *MembersHandler {
@@ -87,7 +87,6 @@ func (h *MembersHandler) GetCartIDs(c *gin.Context) {
 func (h *MembersHandler) GetCartMovies(c *gin.Context) {
 	username, err := utils.GetStringArg(c.Params, constants.USERNAME)
 	if err != nil {
-		// return http.StatusBadRequest, nil, err
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}

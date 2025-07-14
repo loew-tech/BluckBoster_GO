@@ -69,7 +69,7 @@ func (s *MembersService) RemoveFromCart(c context.Context, username, movieID str
 }
 
 func (s *MembersService) modifyCart(c context.Context, username, movieID, action string, checkingOut bool) (bool, error) {
-	modified, _, err := s.repo.ModifyCart(c, username, movieID, action, checkingOut)
+	modified, err := s.repo.ModifyCart(c, username, movieID, action, checkingOut)
 	if err != nil {
 		return false, utils.LogError("err updating cart", err)
 	}
@@ -103,7 +103,6 @@ func (s *MembersService) GetCheckedOutMovies(c context.Context, username string)
 	return movies, nil
 }
 
-// @TODO: this method doesn't work
 func (s *MembersService) SetAPIChoice(c context.Context, username, apiChoice string) error {
 	if err := s.repo.SetMemberAPIChoice(c, username, apiChoice); err != nil {
 		return fmt.Errorf("failed to set %s api selection to %s", username, apiChoice)

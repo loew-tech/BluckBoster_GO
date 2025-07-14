@@ -8,14 +8,14 @@ import (
 
 // @TODO: remove status return?
 type MembersServiceInterface interface {
-	GetMember(c context.Context, username string) (int, data.Member, error)
-	Login(c context.Context, username string) (int, data.Member, error)
-	GetCartIDs(c context.Context, username string) (int, []string, error)
-	GetCartMovies(c context.Context, username string) (int, []data.Movie, error)
-	AddToCart(c context.Context, username, movieID string) (int, error)
-	RemoveFromCart(c context.Context, username, movieID string) (int, error)
-	Checkout(c context.Context, username string, movieIDs []string) (int, []string, int, error)
-	Return(c context.Context, username string, movieIDs []string) (int, []string, int, error)
-	GetCheckedOutMovies(c context.Context, username string) (int, []data.Movie, error)
-	SetAPIChoice(c context.Context, username, apiChoice string) (int, string, error)
+	GetMember(ctx context.Context, username string) (data.Member, error)
+	Login(ctx context.Context, username string) (data.Member, error)
+	GetCartIDs(ctx context.Context, username string) ([]string, error)
+	GetCartMovies(ctx context.Context, username string) ([]data.Movie, error)
+	AddToCart(ctx context.Context, username, movieID string) (bool, error)
+	RemoveFromCart(ctx context.Context, username, movieID string) (bool, error)
+	Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
+	Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
+	GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error)
+	SetAPIChoice(ctx context.Context, username, apiChoice string) error
 }
