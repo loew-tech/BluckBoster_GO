@@ -7,13 +7,12 @@ import (
 )
 
 type MovieGraph struct {
-	directedMovies map[string][]data.Movie
-	starredWith    map[string]map[string]bool
-	starredIn      map[string][]data.Movie
-	NumDirectors   int
-	NumStars       int
-	NumMovies      int
-	// movieIDToMovie    map[string]data.Movie
+	directedMovies    map[string][]data.Movie
+	starredWith       map[string]map[string]bool
+	starredIn         map[string][]data.Movie
+	NumDirectors      int
+	NumStars          int
+	NumMovies         int
 	movieTitleToMovie map[string]data.Movie
 }
 
@@ -44,7 +43,6 @@ func (g *MovieGraph) BFS(
 				if movieTitles[movie.Title] {
 					continue
 				}
-				// fmt.Println("\t**DEBUG TITLE**", movie.Title)
 				movieTitles[movie.Title] = true
 
 				for _, coStar := range movie.Cast {
@@ -55,6 +53,11 @@ func (g *MovieGraph) BFS(
 			}
 		}
 		toSearch = nextSearch
+	}
+
+	// Populate cache with stars seen before depth limit reached
+	for _, star := range toSearch {
+		stars[star] = true
 	}
 }
 
