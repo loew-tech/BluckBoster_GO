@@ -8,7 +8,7 @@ type MovieGraphInterface interface {
 	GetDirectedMovies(director string) []data.Movie
 	GetStarredIn(star string) []data.Movie
 	GetStarredWith(star string) []string
-	GetMoviesByID(ids map[string]bool) []data.Movie
+	GetMovieFromTitle(title string) (data.Movie, error)
 	TotalStars() int
 	TotalMovies() int
 	TotalDirectors() int

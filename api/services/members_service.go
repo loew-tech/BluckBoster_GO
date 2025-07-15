@@ -11,6 +11,7 @@ import (
 	"blockbuster/api/utils"
 )
 
+// @TODO: make err handling consistent with movies_service
 type MembersService struct {
 	repo repos.MemberRepoInterface
 }
