@@ -3,12 +3,10 @@ package repos
 import (
 	"blockbuster/api/data"
 	"context"
-
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 type MovieReadRepo interface {
-	GetMoviesByPage(ctx context.Context, forGraph bool, page string) ([]data.Movie, error)
+	GetMoviesByPage(ctx context.Context, page string, forGraph bool) ([]data.Movie, error)
 	GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, error)
 	GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, error)
 	GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error)
@@ -28,7 +26,7 @@ type MemberRepoInterface interface {
 	GetMemberByUsername(ctx context.Context, username string, cartOnly bool) (data.Member, error)
 	GetCartMovies(ctx context.Context, username string) ([]data.Movie, error)
 	GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error)
-	ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, *dynamodb.UpdateItemOutput, error)
+	ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, error)
 	Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
 	Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
 	SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error

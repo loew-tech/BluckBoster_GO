@@ -68,7 +68,7 @@ var UpdateCartField = &graphql.Field{
 			log.Println(err)
 			return nil, err
 		}
-		inserted, _, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
+		inserted, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
 		if err != nil {
 			wrapErr := fmt.Errorf("error modifying cart for user %s: %w", username, err)
 			log.Println(wrapErr)
@@ -121,7 +121,7 @@ var SetAPIChoiceField = &graphql.Field{
 		},
 	},
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-		username, err := getStringArg(p, constants.USERNAME, "setAPIChoice")
+		username, err := getStringArg(p, constants.USERNAME, constants.SET_API_CHOICE)
 		if err != nil {
 			return nil, err
 		}

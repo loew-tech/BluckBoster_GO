@@ -9,17 +9,16 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"blockbuster/api/constants"
-	"blockbuster/api/repos"
-	"blockbuster/api/utils"
+	"blockbuster/api/services"
 )
 
 type MoviesHandler struct {
-	repo repos.ReadWriteMovieRepo
+	service services.MoviesServiceInterface
 }
 
 func NewMoviesHandler() *MoviesHandler {
 	return &MoviesHandler{
-		repo: repos.NewMovieRepoWithDynamo(),
+		service: services.GetMovieService(),
 	}
 }
 
@@ -41,10 +40,9 @@ func (h *MoviesHandler) GetMoviesByPage(c *gin.Context) {
 		return
 	}
 	log.Printf("Fetching movies for page key: %s", pageKey)
-	movies, err := h.repo.GetMoviesByPage(c, constants.NOT_FOR_GRAPH, pageKey)
+	movies, err := h.service.GetMoviesByPage(c.Request.Context(), pageKey)
 	if err != nil {
-		utils.LogError("Failed to fetch movies", err)
-		c.JSON(http.StatusNotFound, gin.H{"msg": "Failed to fetch movies"})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to fetch movies"})
 		return
 	}
 	c.JSON(http.StatusOK, movies)
@@ -57,10 +55,13 @@ func (h *MoviesHandler) GetMovie(c *gin.Context) {
 		return
 	}
 	log.Printf("Fetching movie by ID: %s", id)
-	movie, err := h.repo.GetMovieByID(c, id, false)
+	movie, err := h.service.GetMovie(c.Request.Context(), id)
 	if err != nil {
-		utils.LogError(fmt.Sprintf("Failed to retrieve movie %s", id), err)
-		c.JSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Movie %s not found", id)})
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Movie %s not found", id)})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("err fetching movie wid id %s", id)})
 		return
 	}
 	c.JSON(http.StatusOK, movie)
@@ -73,9 +74,11 @@ func (h *MoviesHandler) GetTrivia(c *gin.Context) {
 		return
 	}
 	log.Printf("Fetching trivia for movie ID: %s", id)
-	trivia, err := h.repo.GetTrivia(c, id)
+	trivia, err := h.service.GetTrivia(c.Request.Context(), id)
 	if err != nil {
-		utils.LogError(fmt.Sprintf("Failed to retrieve trivia for movie %s", id), err)
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("err occurred fetching trivia for %s", id)})
+	}
+	if trivia.Trivia == "" {
 		c.JSON(http.StatusNotFound, gin.H{"msg": fmt.Sprintf("Trivia for %s not found", id)})
 		return
 	}

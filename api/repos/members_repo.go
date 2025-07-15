@@ -87,11 +87,10 @@ func (r *MemberRepo) GetCheckedOutMovies(ctx context.Context, username string) (
 	return movies, nil
 }
 
-// @TODO: remove second return. It's not used anywhere
-func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, *dynamodb.UpdateItemOutput, error) {
+func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKey string, checkingOut bool) (bool, error) {
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
-		return false, nil, utils.LogError("marshalling username", err)
+		return false, utils.LogError("marshalling username", err)
 	}
 
 	expr, attrs := buildCartUpdateExpr(movieID, updateKey, checkingOut)
@@ -108,7 +107,7 @@ func (r *MemberRepo) ModifyCart(ctx context.Context, username, movieID, updateKe
 func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
 	user, err := r.GetMemberByUsername(ctx, username, constants.CART)
 	if err != nil {
-		return nil, 0, utils.LogError("retrieving user", err)
+		return nil, 0, utils.LogError("err retrieving user", err)
 	}
 
 	if data.MemberTypes[user.Type] < len(movieIDs)+len(user.Checkedout) {
@@ -117,7 +116,7 @@ func (r *MemberRepo) Checkout(ctx context.Context, username string, movieIDs []s
 
 	movies, err := r.movieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
-		return nil, 0, utils.LogError("retrieving movies", err)
+		return nil, 0, utils.LogError("err retrieving movies", err)
 	}
 
 	return r.performCheckout(ctx, user, movies)
@@ -129,12 +128,12 @@ func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []str
 
 	movies, err := r.movieRepo.GetMoviesByID(ctx, movieIDs, constants.NOT_CART)
 	if err != nil {
-		return nil, 0, utils.LogError("fetching movies for return", err)
+		return nil, 0, utils.LogError("err fetching movies for return", err)
 	}
 
 	name, err := attributevalue.Marshal(username)
 	if err != nil {
-		return nil, 0, utils.LogError("marshalling username", err)
+		return nil, 0, utils.LogError("err marshalling username", err)
 	}
 
 	for _, movie := range movies {
@@ -144,7 +143,7 @@ func (r *MemberRepo) Return(ctx context.Context, username string, movieIDs []str
 			continue
 		}
 
-		ok, _, err := r.updateMember(ctx, updateInput)
+		ok, err := r.updateMember(ctx, updateInput)
 		if err != nil || !ok {
 			messages = append(messages, utils.LogError(fmt.Sprintf("returning %s", movie.Title), err).Error())
 			continue
@@ -219,7 +218,7 @@ func (r *MemberRepo) checkoutMovie(ctx context.Context, user data.Member, movie 
 		return utils.LogError(fmt.Sprintf("renting %s", movie.Title), err)
 	}
 
-	ok, _, err = r.ModifyCart(ctx, user.Username, movie.ID, constants.DELETE, constants.CHECKOUT)
+	ok, err = r.ModifyCart(ctx, user.Username, movie.ID, constants.DELETE, constants.CHECKOUT)
 	if err != nil || !ok {
 		r.movieRepo.Return(ctx, movie)
 		return utils.LogError(fmt.Sprintf("removing %s from cart", movie.Title), err)
@@ -227,12 +226,12 @@ func (r *MemberRepo) checkoutMovie(ctx context.Context, user data.Member, movie 
 	return nil
 }
 
-func (r *MemberRepo) updateMember(ctx context.Context, input *dynamodb.UpdateItemInput) (bool, *dynamodb.UpdateItemOutput, error) {
-	response, err := r.client.UpdateItem(ctx, input)
+func (r *MemberRepo) updateMember(ctx context.Context, input *dynamodb.UpdateItemInput) (bool, error) {
+	_, err := r.client.UpdateItem(ctx, input)
 	if err != nil {
-		return false, response, utils.LogError("updating member", err)
+		return false, utils.LogError("updating member: ", err)
 	}
-	return true, response, nil
+	return true, nil
 }
 
 func (r *MemberRepo) getReturnInput(movie data.Movie, name types.AttributeValue) (*dynamodb.UpdateItemInput, error) {
