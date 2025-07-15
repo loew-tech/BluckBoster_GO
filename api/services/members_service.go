@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -11,7 +12,6 @@ import (
 	"blockbuster/api/utils"
 )
 
-// @TODO: make err handling consistent with movies_service
 type MembersService struct {
 	repo repos.MemberRepoInterface
 }
@@ -31,7 +31,8 @@ func GetMemberService() *MembersService {
 func (s *MembersService) GetMember(c context.Context, username string) (data.Member, error) {
 	member, err := s.repo.GetMemberByUsername(c, username, constants.NOT_CART)
 	if err != nil {
-		return data.Member{}, utils.LogError(fmt.Sprintf("Failed to retrieve user %s", username), err)
+		utils.LogError(fmt.Sprintf("failed to retrieve user %s", username), err)
+		return data.Member{}, fmt.Errorf("failed to retrieve user %s", username)
 	}
 	return member, nil
 }
@@ -39,7 +40,8 @@ func (s *MembersService) GetMember(c context.Context, username string) (data.Mem
 func (s *MembersService) Login(c context.Context, username string) (data.Member, error) {
 	member, err := s.repo.GetMemberByUsername(c, username, constants.NOT_CART)
 	if err != nil || member.Username == "" {
-		return data.Member{}, utils.LogError(fmt.Sprintf("User %s not found", username), nil)
+		utils.LogError(fmt.Sprintf("user %s not found", username), err)
+		return data.Member{}, fmt.Errorf("failed to login with user %s", username)
 	}
 	return member, nil
 }
@@ -47,7 +49,8 @@ func (s *MembersService) Login(c context.Context, username string) (data.Member,
 func (s *MembersService) GetCartIDs(c context.Context, username string) ([]string, error) {
 	user, err := s.repo.GetMemberByUsername(c, username, constants.CART)
 	if err != nil {
-		return nil, utils.LogError(fmt.Sprintf("User %s not found", username), err)
+		utils.LogError(fmt.Sprintf("sser %s not found", username), err)
+		return nil, fmt.Errorf("user %s not found", username)
 	}
 	return user.Cart, nil
 }
@@ -55,7 +58,8 @@ func (s *MembersService) GetCartIDs(c context.Context, username string) ([]strin
 func (s *MembersService) GetCartMovies(c context.Context, username string) ([]data.Movie, error) {
 	movies, err := s.repo.GetCartMovies(c, username)
 	if err != nil {
-		return nil, utils.LogError(fmt.Sprintf("Failed to retrieve cart movies for %s", username), err)
+		utils.LogError(fmt.Sprintf("failed to retrieve cart movies for %s", username), err)
+		return nil, fmt.Errorf("failed to retrieve cart movies for %s", username)
 	}
 	return movies, nil
 }
@@ -71,9 +75,10 @@ func (s *MembersService) RemoveFromCart(c context.Context, username, movieID str
 func (s *MembersService) modifyCart(c context.Context, username, movieID, action string, checkingOut bool) (bool, error) {
 	modified, err := s.repo.ModifyCart(c, username, movieID, action, checkingOut)
 	if err != nil {
-		return false, utils.LogError("err updating cart", err)
+		utils.LogError("err updating cart", err)
+		return false, errors.New("err updating cart")
 	}
-	return modified, err
+	return modified, nil
 }
 
 func (s MembersService) Checkout(c context.Context, username string, movieIDs []string) ([]string, int, error) {
@@ -90,6 +95,7 @@ func (s *MembersService) handleInventoryAction(
 ) ([]string, int, error) {
 	msgs, modifiedCount, err := f(c, username, movieIDs)
 	if err != nil {
+		utils.LogError(fmt.Sprintf("failed to update inventory for %s", username), err)
 		return nil, 0, fmt.Errorf("failed to update inventory for %s", username)
 	}
 	return msgs, modifiedCount, nil
@@ -98,13 +104,15 @@ func (s *MembersService) handleInventoryAction(
 func (s *MembersService) GetCheckedOutMovies(c context.Context, username string) ([]data.Movie, error) {
 	movies, err := s.repo.GetCheckedOutMovies(c, username)
 	if err != nil {
-		return nil, utils.LogError(fmt.Sprintf("failed to retrieve checked out movies for %s", username), err)
+		utils.LogError(fmt.Sprintf("failed to retrieve checked out movies for %s", username), err)
+		return nil, fmt.Errorf("failed to retrieve checked out movies for %s", username)
 	}
 	return movies, nil
 }
 
 func (s *MembersService) SetAPIChoice(c context.Context, username, apiChoice string) error {
 	if err := s.repo.SetMemberAPIChoice(c, username, apiChoice); err != nil {
+		utils.LogError(fmt.Sprintf("failed to set %s apiChoice to %s", username, apiChoice), err)
 		return fmt.Errorf("failed to set %s api selection to %s", username, apiChoice)
 	}
 	return nil

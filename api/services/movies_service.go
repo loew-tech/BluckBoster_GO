@@ -48,7 +48,8 @@ func (s *MoviesService) GetMovie(c context.Context, movieID string) (data.Movie,
 func (s *MoviesService) GetTrivia(c context.Context, movieID string) (data.MovieTrivia, error) {
 	trivia, err := s.repo.GetTrivia(c, movieID)
 	if err != nil {
-		return data.MovieTrivia{}, utils.LogError("failed to get trivia", err)
+		utils.LogError("failed to get trivia", err)
+		return data.MovieTrivia{}, fmt.Errorf("failed to retrieve trivia for %s", movieID)
 	}
 	return trivia, nil
 }
