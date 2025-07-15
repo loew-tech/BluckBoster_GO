@@ -1,6 +1,10 @@
 package graphsearch
 
-import "blockbuster/api/data"
+import (
+	"blockbuster/api/data"
+	"blockbuster/api/utils"
+	"fmt"
+)
 
 type MovieGraph struct {
 	directedMovies map[string][]data.Movie
@@ -9,14 +13,15 @@ type MovieGraph struct {
 	NumDirectors   int
 	NumStars       int
 	NumMovies      int
-	movieIDToMovie map[string]data.Movie
+	// movieIDToMovie    map[string]data.Movie
+	movieTitleToMovie map[string]data.Movie
 }
 
 // BFS traverses the graph starting from an actor and collects related stars, movies, and directors.
 func (g *MovieGraph) BFS(
 	startStar string,
 	stars map[string]bool,
-	movieIDs map[string]bool,
+	movieTitles map[string]bool,
 	directors map[string]bool,
 	maxDepth int,
 ) {
@@ -36,10 +41,11 @@ func (g *MovieGraph) BFS(
 			for _, movie := range g.starredIn[star] {
 				directors[movie.Director] = true
 
-				if movieIDs[movie.ID] {
+				if movieTitles[movie.Title] {
 					continue
 				}
-				movieIDs[movie.ID] = true
+				// fmt.Println("\t**DEBUG TITLE**", movie.Title)
+				movieTitles[movie.Title] = true
 
 				for _, coStar := range movie.Cast {
 					if !stars[coStar] {
@@ -83,14 +89,18 @@ func (g *MovieGraph) GetStarredWith(star string) []string {
 	return coStars
 }
 
-func (g *MovieGraph) GetMoviesByID(movieIDs map[string]bool) []data.Movie {
-	movies := make([]data.Movie, 0, len(movieIDs))
-	for id := range movieIDs {
-		if movie, ok := g.movieIDToMovie[id]; ok {
-			movies = append(movies, movie)
-		}
+func (g *MovieGraph) GetIDFromTitle(title string) (string, error) {
+	if movie, ok := g.movieTitleToMovie[title]; ok {
+		return movie.ID, nil
 	}
-	return movies
+	return "", utils.LogError(fmt.Sprintf("failed to get movieID for title %s", title), nil)
+}
+
+func (g *MovieGraph) GetMovieFromTitle(title string) (data.Movie, error) {
+	if movie, ok := g.movieTitleToMovie[title]; ok {
+		return movie, nil
+	}
+	return data.TestMovies[0], utils.LogError(fmt.Sprintf("failed to retrieve movie with  %s", title), nil)
 }
 
 func (g *MovieGraph) TotalStars() int {

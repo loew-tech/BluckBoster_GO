@@ -15,7 +15,7 @@ import (
 	"blockbuster/api/utils"
 )
 
-// @TODO: write interfaces
+// @TODO: make err handling consistent with movies_service
 type MembersService struct {
 	repo repos.MemberRepoInterface
 }
@@ -148,7 +148,7 @@ func (s *MembersService) GetCheckedOutMovies(c *gin.Context) (int, []data.Movie,
 	}
 	movies, err := s.repo.GetCheckedOutMovies(c, username)
 	if err != nil {
-		return http.StatusInternalServerError, nil, fmt.Errorf("Failed to retrieve checked out movies for %s", username)
+		return http.StatusInternalServerError, nil, fmt.Errorf("failed to retrieve checked out movies for %s", username)
 	}
 	return http.StatusAccepted, movies, nil
 }
@@ -160,10 +160,10 @@ func (s *MembersService) SetAPIChoice(c *gin.Context) (int, string, error) {
 	}
 	apiChoice := c.Query(constants.API_CHOICE)
 	if apiChoice == "" || (apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API) {
-		return http.StatusBadRequest, "", fmt.Errorf("Invalid api choice for %s. Selected '%s' but must be '%s' or '%s'", username, apiChoice, constants.REST_API, constants.GRAPHQL_API)
+		return http.StatusBadRequest, "", fmt.Errorf("invalid api choice for %s. Selected '%s' but must be '%s' or '%s'", username, apiChoice, constants.REST_API, constants.GRAPHQL_API)
 	}
 	if err := s.repo.SetMemberAPIChoice(c, username, apiChoice); err != nil {
-		return http.StatusInternalServerError, "", fmt.Errorf("Failed to set %s api selection to %s", username, apiChoice)
+		return http.StatusInternalServerError, "", fmt.Errorf("failed to set %s api selection to %s", username, apiChoice)
 	}
 	return http.StatusAccepted, apiChoice, nil
 }
