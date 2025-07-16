@@ -58,6 +58,7 @@ func (h *MembersHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid value for field 'username'"})
 		return
 	}
+	log.Printf("attempting login with username %s\n", req.Username)
 	member, err := h.service.Login(c.Request.Context(), req.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("error logging in as user %s", req.Username)})
@@ -125,7 +126,7 @@ func (h *MembersHandler) RemoveFromCart(c *gin.Context) {
 		MovieID  string `json:"movie_id"`
 	}
 	if err := c.BindJSON(&req); err != nil || req.Username == "" || req.MovieID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid modify cart request; username and movie_id must be provided"})
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. 'username' and 'movie_id' must be provided"})
 		return
 	}
 	modified, err := h.service.RemoveFromCart(c.Request.Context(), req.Username, req.MovieID)
@@ -146,7 +147,7 @@ func (h *MembersHandler) Checkout(c *gin.Context) {
 		MovieIDs []string `json:"movie_ids"`
 	}
 	if err := c.BindJSON(&req); err != nil || req.Username == "" || len(req.MovieIDs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires username and movie_ids"})
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires 'username' and 'movie_ids'"})
 		return
 	}
 	msgs, modifiedCount, err := h.service.Checkout(c.Request.Context(), req.Username, req.MovieIDs)
@@ -163,7 +164,7 @@ func (h *MembersHandler) Return(c *gin.Context) {
 		MovieIDs []string `json:"movie_ids"`
 	}
 	if err := c.BindJSON(&req); err != nil || req.Username == "" || len(req.MovieIDs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires username and movie_ids"})
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body. Requires 'username' and 'movie_ids'"})
 		return
 	}
 	msgs, modifiedCount, err := h.service.Return(c.Request.Context(), req.Username, req.MovieIDs)
@@ -191,12 +192,10 @@ func (h *MembersHandler) GetCheckedOutMovies(c *gin.Context) {
 func (h *MembersHandler) SetAPIChoice(c *gin.Context) {
 	username, err := utils.GetStringArg(c.Params, constants.USERNAME)
 	if err != nil {
-		log.Println("^^ REST ^^ early out 1", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}
 	apiChoice := c.Query(constants.API_CHOICE)
-	log.Println("**DEBUG**", username, apiChoice)
 	if apiChoice == "" || (apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid api selection '%s'; must be 'REST' or 'GraphQL'", apiChoice)})
 		return

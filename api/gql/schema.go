@@ -35,12 +35,12 @@ func getMutations() graphql.Fields {
 
 func getSchema() graphql.Schema {
 	query := graphql.NewObject(graphql.ObjectConfig{
-		Name:   "RootQuery",
+		Name:   constants.ROOT_QUERY,
 		Fields: getQueries(),
 	})
 
 	mutation := graphql.NewObject(graphql.ObjectConfig{
-		Name:   "RootMutation",
+		Name:   constants.ROOT_MUTATION,
 		Fields: getMutations(),
 	})
 

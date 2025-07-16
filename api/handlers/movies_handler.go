@@ -10,6 +10,7 @@ import (
 
 	"blockbuster/api/constants"
 	"blockbuster/api/services"
+	"blockbuster/api/utils"
 )
 
 type MoviesHandler struct {
@@ -31,15 +32,15 @@ func (h *MoviesHandler) RegisterRoutes(rg *gin.RouterGroup) {
 func (h *MoviesHandler) GetMoviesByPage(c *gin.Context) {
 	pageKey := strings.ToUpper(c.DefaultQuery(constants.PAGE, constants.DEFAULT_PAGE))
 	if pageKey == "" {
-		log.Println("Missing 'page' query parameter")
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing page query parameter"})
+		utils.LogError("Missing 'page' query parameter", nil)
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing 'page' query parameter"})
 		return
 	}
 	if !strings.Contains(constants.PAGES, pageKey) {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid page key: %s", pageKey)})
+		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid page key: %s. Must be one of %s", pageKey, constants.PAGES)})
 		return
 	}
-	log.Printf("Fetching movies for page key: %s", pageKey)
+	log.Printf("Fetching movies for page key: %s\n", pageKey)
 	movies, err := h.service.GetMoviesByPage(c.Request.Context(), pageKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to fetch movies"})
@@ -54,7 +55,6 @@ func (h *MoviesHandler) GetMovie(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing movieID parameter"})
 		return
 	}
-	log.Printf("Fetching movie by ID: %s", id)
 	movie, err := h.service.GetMovie(c.Request.Context(), id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
