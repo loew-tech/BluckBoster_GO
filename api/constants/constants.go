@@ -42,6 +42,8 @@ const (
 	NOT_CHECKOUT = false
 
 	// GraphQL
+	ROOT_QUERY          = "RootQuery"
+	ROOT_MUTATION       = "RootMutation"
 	CHECKOUT_STRING     = "Checkout"
 	MOVIE_ID            = "movieID"
 	MOVIE_IDS           = "movieIDs"
@@ -67,6 +69,7 @@ const (
 	REMOVE_FROM_CART    = "removeFromCart"
 	UPDATE_CART         = "UpdateCart"
 	SET_API_CHOICE      = "SetAPIChoice"
+	SUCCESS             = "success"
 	FOR_GRAPH           = true
 	NOT_FOR_GRAPH       = false
 

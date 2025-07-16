@@ -1,16 +1,15 @@
-// File: queries.go
 package gql
 
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/graphql-go/graphql"
 
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
+	"blockbuster/api/utils"
 )
 
 var GetMoviesField = &graphql.Field{
@@ -25,7 +24,7 @@ var GetMoviesField = &graphql.Field{
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 		page := p.Args[constants.PAGE].(string)
 		if !strings.Contains(constants.PAGES, page) {
-			return nil, fmt.Errorf("%s is not a valid page: %s", page, constants.PAGES)
+			return nil, fmt.Errorf("invalid page key: %s. Must be one of %s", page, constants.PAGES)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
@@ -33,9 +32,7 @@ var GetMoviesField = &graphql.Field{
 		}
 		movies, err := movieRepo.GetMoviesByPage(ctx, page, constants.NOT_FOR_GRAPH)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to retrieve movies for page %s: %w", page, err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to retrieve movies for page %s", page), err)
 		}
 		director, ok := p.Args[constants.DIRECTOR]
 		if !ok || director == "" {
@@ -64,9 +61,7 @@ var GetMovieField = &graphql.Field{
 		}
 		movie, err := movieRepo.GetMovieByID(ctx, movieID, constants.NOT_CART)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to retrieve movie %s from cloud: %w", movieID, err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to retrieve movie %s from cloud", movieID), err)
 		}
 		return movie, nil
 	},
@@ -88,9 +83,7 @@ var GetCartField = &graphql.Field{
 		}
 		movies, err := memberRepo.GetCartMovies(ctx, username)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to retrieve movies in cart: %w", err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to retrieve movies in cart for user %s", username), err)
 		}
 		return movies, nil
 	},
@@ -112,15 +105,11 @@ var GetCheckedOutField = &graphql.Field{
 		}
 		user, err := memberRepo.GetMemberByUsername(ctx, username, constants.CART)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to retrieve user  %s: %w", username, err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to retrieve user %s", username), err)
 		}
 		movies, err := movieRepo.GetMoviesByID(ctx, user.Checkedout, constants.CART)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to retrieve movies: %w", err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to retrieve checked out movies for user %s", username), err)
 		}
 		return movies, nil
 	},
@@ -142,9 +131,7 @@ var GetMemberField = &graphql.Field{
 		}
 		member, err := memberRepo.GetMemberByUsername(ctx, username, constants.NOT_CART)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to retrieve member %s from cloud: %w", username, err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to retrieve member %s from cloud", username), err)
 		}
 		return member, nil
 	},
@@ -180,9 +167,7 @@ var GetStarredInField = &graphql.Field{
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 		star := p.Args[constants.STAR].(string)
 		if star == "" {
-			msg := "star argument is required for starredIn query"
-			log.Println(msg)
-			return nil, errors.New(msg)
+			return nil, utils.LogError("star argument is required for starredIn query", errors.New("missing star argument"))
 		}
 		return movieGraph.GetStarredIn(star), nil
 	},
@@ -196,9 +181,7 @@ var GetStarredWithField = &graphql.Field{
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 		star := p.Args[constants.STAR].(string)
 		if star == "" {
-			msg := "star argument is required for starredWith query"
-			log.Println(msg)
-			return nil, errors.New(msg)
+			return nil, utils.LogError("star argument is required for starredWith query", errors.New("missing star argument"))
 		}
 		return movieGraph.GetStarredWith(star), nil
 	},

@@ -9,6 +9,7 @@ import (
 	"github.com/graphql-go/graphql"
 
 	"blockbuster/api/constants"
+	"blockbuster/api/utils"
 )
 
 var ReturnRentalsField = &graphql.Field{
@@ -24,9 +25,7 @@ var ReturnRentalsField = &graphql.Field{
 		}
 		ids := extractIDList(p.Args[constants.MOVIE_IDS])
 		if len(ids) == 0 {
-			msg := "movieIds argument is required for returnRentals mutation"
-			log.Println(msg)
-			return nil, errors.New(msg)
+			return nil, utils.LogError("movieIds argument is required for returnRentals mutation", nil)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
@@ -34,9 +33,7 @@ var ReturnRentalsField = &graphql.Field{
 		}
 		messages, _, err := memberRepo.Return(ctx, username, ids)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to return rentals for user %s: %w", username, err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to return rentals for user %s", username), err)
 		}
 		return messages, nil
 	},
@@ -65,18 +62,15 @@ var UpdateCartField = &graphql.Field{
 		}
 		ctx, err := getContext(p)
 		if err != nil {
-			log.Println(err)
 			return nil, err
 		}
 		inserted, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
 		if err != nil {
-			wrapErr := fmt.Errorf("error modifying cart for user %s: %w", username, err)
-			log.Println(wrapErr)
-			return nil, wrapErr
+			return nil, utils.LogError(fmt.Sprintf("error modifying cart for user %s", username), err)
 		} else if !inserted {
-			return fmt.Sprintf("Failed to modify cart for %s", username), nil
+			return fmt.Sprintf("failed to modify cart for %s", username), nil
 		}
-		return "success", nil
+		return constants.SUCCESS, nil
 	},
 }
 
@@ -94,7 +88,6 @@ var CheckoutField = &graphql.Field{
 		ids := extractIDList(p.Args[constants.MOVIE_IDS])
 		if len(ids) == 0 {
 			msg := "movieIds argument is required for checkout mutation"
-			log.Println(msg)
 			return nil, errors.New(msg)
 		}
 		ctx, err := getContext(p)
@@ -103,9 +96,7 @@ var CheckoutField = &graphql.Field{
 		}
 		messages, _, err := memberRepo.Checkout(ctx, username, ids)
 		if err != nil {
-			errWrap := fmt.Errorf("failed to checkout for user %s: %w", username, err)
-			log.Println(errWrap)
-			return nil, errWrap
+			return nil, utils.LogError(fmt.Sprintf("failed to checkout for user %s:", username), err)
 		}
 		return messages, nil
 	},
@@ -128,12 +119,10 @@ var SetAPIChoiceField = &graphql.Field{
 		apiChoice, ok := p.Args[constants.API_CHOICE].(string)
 		if !ok || apiChoice == "" {
 			msg := "apiChoice argument is required for setAPIChoice mutation"
-			log.Println(msg)
 			return nil, errors.New(msg)
 		}
 		if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
 			msg := fmt.Sprintf("apiChoice must be either %s or %s", constants.REST_API, constants.GRAPHQL_API)
-			log.Println(msg)
 			return nil, errors.New(msg)
 		}
 		ctx, err := getContext(p)
@@ -143,8 +132,7 @@ var SetAPIChoiceField = &graphql.Field{
 		}
 		err = memberRepo.SetMemberAPIChoice(ctx, username, apiChoice)
 		if err != nil {
-			log.Println(err)
-			return nil, err
+			return nil, utils.LogError("", err)
 		}
 		return fmt.Sprintf("successfully set %s api choice to %s", username, apiChoice), nil
 	},

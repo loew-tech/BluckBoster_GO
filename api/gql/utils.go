@@ -2,6 +2,7 @@ package gql
 
 import (
 	"blockbuster/api/repos"
+	"blockbuster/api/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -30,7 +31,7 @@ func getContext(p graphql.ResolveParams) (*gin.Context, error) {
 	ctx, ok := p.Context.Value(ginContextKey).(*gin.Context)
 	if !ok {
 		msg := "gin context not found in resolve params"
-		log.Println(msg)
+		utils.LogError(msg, nil)
 		return nil, errors.New(msg)
 	}
 	return ctx, nil
