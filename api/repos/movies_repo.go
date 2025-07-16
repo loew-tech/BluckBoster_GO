@@ -106,7 +106,7 @@ func (r *DynamoMovieRepo) getMovieByIDInput(movieID string, forCart bool) (*dyna
 
 func (r *DynamoMovieRepo) getMovieByIDResult(result *dynamodb.GetItemOutput) (data.Movie, error) {
 	if result.Item == nil {
-		return data.Movie{}, errors.New("movie not found")
+		return data.Movie{}, utils.LogError("movie not found", nil)
 	}
 	var movie data.Movie
 	err := attributevalue.UnmarshalMap(result.Item, &movie)
@@ -121,7 +121,7 @@ func (r *DynamoMovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, 
 		return []data.Movie{}, nil
 	}
 	if len(movieIDs) > 10 {
-		return nil, errors.New("batch size exceeds DynamoDB 100-item limit")
+		return nil, utils.LogError("batch size exceeds DynamoDB 10-item limit", nil)
 	}
 
 	keys := make([]map[string]types.AttributeValue, 0, len(movieIDs))
@@ -159,22 +159,16 @@ func (r *DynamoMovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, 
 }
 
 func (r *DynamoMovieRepo) Rent(ctx context.Context, movie data.Movie) (bool, error) {
-	input, err := getUpdateInventoryInput(movie, -1)
-	if err != nil {
-		return false, utils.LogError("creating rent input", err)
-	}
+	input := getUpdateInventoryInput(movie, constants.RENT_MOVIE_INC)
 	return r.updateInventory(ctx, movie, input)
 }
 
 func (r *DynamoMovieRepo) Return(ctx context.Context, movie data.Movie) (bool, error) {
-	input, err := getUpdateInventoryInput(movie, 1)
-	if err != nil {
-		return false, utils.LogError("creating return input", err)
-	}
+	input := getUpdateInventoryInput(movie, constants.RETURN_MOVIE_INC)
 	return r.updateInventory(ctx, movie, input)
 }
 
-func getUpdateInventoryInput(movie data.Movie, inventoryDelta int) (*dynamodb.UpdateItemInput, error) {
+func getUpdateInventoryInput(movie data.Movie, inventoryDelta int) *dynamodb.UpdateItemInput {
 	mid := &types.AttributeValueMemberS{Value: movie.ID}
 
 	return &dynamodb.UpdateItemInput{
@@ -186,7 +180,7 @@ func getUpdateInventoryInput(movie data.Movie, inventoryDelta int) (*dynamodb.Up
 		},
 		UpdateExpression: aws.String("SET inventory = :inventory, rented = :rented"),
 		ReturnValues:     types.ReturnValueUpdatedNew,
-	}, nil
+	}
 }
 
 func (r *DynamoMovieRepo) updateInventory(ctx context.Context, movie data.Movie, input *dynamodb.UpdateItemInput) (bool, error) {

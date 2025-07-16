@@ -18,19 +18,21 @@ const (
 	MEMBER_TYPE_PREMIUM = "premium"
 
 	// Movie
-	MOVIE      = "movie"
-	MOVIES     = "movies"
-	MOVIE_TYPE = "Movie"
-	TITLE      = "title"
-	CAST       = "cast"
-	YEAR       = "year"
-	TRIVIA     = "trivia"
-	INVENTORY  = "inventory"
-	DIRECTOR   = "director"
-	RATING     = "rating"
-	RENTED     = "rented"
-	SYNOPSIS   = "synopsis"
-	REVIEW     = "review"
+	MOVIE            = "movie"
+	MOVIES           = "movies"
+	MOVIE_TYPE       = "Movie"
+	TITLE            = "title"
+	CAST             = "cast"
+	YEAR             = "year"
+	TRIVIA           = "trivia"
+	INVENTORY        = "inventory"
+	DIRECTOR         = "director"
+	RATING           = "rating"
+	RENTED           = "rented"
+	SYNOPSIS         = "synopsis"
+	REVIEW           = "review"
+	RETURN_MOVIE_INC = 1
+	RENT_MOVIE_INC   = -1
 
 	// Cart
 	ADD    = "ADD"
