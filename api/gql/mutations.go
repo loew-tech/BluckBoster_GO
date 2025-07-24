@@ -3,7 +3,6 @@ package gql
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/graphql-go/graphql"
@@ -24,7 +23,7 @@ var ReturnRentalsField = &graphql.Field{
 		}
 		ids := extractIDList(p.Args[constants.MOVIE_IDS])
 		if len(ids) == 0 {
-			return nil, getFormattedError("movieIds argument is required for returnRentals mutation", http.StatusBadRequest)
+			return nil, getFormattedError("non-empty 'movieIds' argument is required for returnRentals mutation", http.StatusBadRequest)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
@@ -61,7 +60,7 @@ var UpdateCartField = &graphql.Field{
 		}
 		ctx, err := getContext(p)
 		if err != nil {
-			return nil, err
+			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		inserted, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
 		if err != nil {
@@ -86,11 +85,11 @@ var CheckoutField = &graphql.Field{
 		}
 		ids := extractIDList(p.Args[constants.MOVIE_IDS])
 		if len(ids) == 0 {
-			return nil, getFormattedError("non-empty movieIds argument is required for checkout mutation", http.StatusBadRequest)
+			return nil, getFormattedError("non-empty 'movieIds' argument is required for checkout mutation", http.StatusBadRequest)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
-			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		messages, _, err := memberRepo.Checkout(ctx, username, ids)
 		if err != nil {
@@ -116,7 +115,7 @@ var SetAPIChoiceField = &graphql.Field{
 		}
 		apiChoice, ok := p.Args[constants.API_CHOICE].(string)
 		if !ok || apiChoice == "" {
-			return nil, getFormattedError("apiChoice argument is required for setAPIChoice mutation", http.StatusBadRequest)
+			return nil, getFormattedError("'apiChoice' argument is required for setAPIChoice mutation", http.StatusBadRequest)
 		}
 		if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
 			msg := fmt.Sprintf("apiChoice must be either %s or %s", constants.REST_API, constants.GRAPHQL_API)
@@ -124,8 +123,7 @@ var SetAPIChoiceField = &graphql.Field{
 		}
 		ctx, err := getContext(p)
 		if err != nil {
-			log.Println(err)
-			return nil, err
+			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		err = memberRepo.SetMemberAPIChoice(ctx, username, apiChoice)
 		if err != nil {
