@@ -72,6 +72,7 @@ const (
 	UPDATE_CART         = "UpdateCart"
 	SET_API_CHOICE      = "SetAPIChoice"
 	SUCCESS             = "success"
+	CODE                = "code"
 	FOR_GRAPH           = true
 	NOT_FOR_GRAPH       = false
 
