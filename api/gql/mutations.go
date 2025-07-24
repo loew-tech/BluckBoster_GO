@@ -31,7 +31,7 @@ var ReturnRentalsField = &graphql.Field{
 		}
 		messages, _, err := memberService.Return(ctx, username, ids)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to return rentals for user %s", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return messages, nil
 	},
@@ -65,7 +65,7 @@ var UpdateCartField = &graphql.Field{
 			inserted, err = memberService.AddToCart(ctx, username, movieID)
 		}
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("error modifying cart for user %s", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		} else if !inserted {
 			return fmt.Sprintf("did not modify cart for %s", username), nil
 		}
@@ -94,7 +94,7 @@ var CheckoutField = &graphql.Field{
 		}
 		messages, _, err := memberService.Checkout(ctx, username, ids)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to checkout for user %s:", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return messages, nil
 	},

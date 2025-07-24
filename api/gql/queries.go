@@ -31,7 +31,7 @@ var GetMoviesField = &graphql.Field{
 		}
 		movies, err := movieService.GetMoviesByPage(ctx, page)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to retrieve movies for page %s", page), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		director, ok := p.Args[constants.DIRECTOR]
 		if !ok || director == "" {
@@ -60,7 +60,7 @@ var GetMovieField = &graphql.Field{
 		}
 		movie, err := movieService.GetMovie(ctx, movieID)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to retrieve movie %s from cloud", movieID), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return movie, nil
 	},
@@ -82,7 +82,7 @@ var GetCartField = &graphql.Field{
 		}
 		movies, err := memberService.GetCartMovies(ctx, username)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to retrieve movies in cart for user %s", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return movies, nil
 	},
@@ -104,11 +104,11 @@ var GetCheckedOutField = &graphql.Field{
 		}
 		user, err := memberService.GetMember(ctx, username, constants.CART)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to retrieve user %s", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		movies, err := movieService.GetMovies(ctx, user.Checkedout)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to retrieve checked out movies for user %s", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return movies, nil
 	},
@@ -130,7 +130,7 @@ var GetMemberField = &graphql.Field{
 		}
 		member, err := memberService.GetMember(ctx, username, constants.NOT_CART)
 		if err != nil {
-			return nil, getFormattedError(fmt.Sprintf("failed to retrieve member %s from cloud", username), http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return member, nil
 	},
