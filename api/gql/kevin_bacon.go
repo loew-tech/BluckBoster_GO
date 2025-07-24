@@ -1,8 +1,7 @@
 package gql
 
 import (
-	"errors"
-	"log"
+	"net/http"
 
 	"github.com/graphql-go/graphql"
 
@@ -22,11 +21,10 @@ var GetKevinBaconField = &graphql.Field{
 		star := p.Args[constants.STAR].(string)
 		movieTitle := p.Args[constants.TITLE].(string)
 		director := p.Args[constants.DIRECTOR].(string)
-		toSearch := buildToSearch(p, star, movieTitle, director)
+		toSearch := buildToSearch(star, movieTitle, director)
 		if len(toSearch) == 0 {
 			msg := "the KevinBacon search requires at least one star, title, or director"
-			log.Println(msg)
-			return nil, errors.New(msg)
+			return nil, getFormattedError(msg, http.StatusBadRequest)
 		}
 
 		depth := min(p.Args[constants.DEPTH].(int), 10)
@@ -47,7 +45,6 @@ var GetKevinBaconField = &graphql.Field{
 				continue
 			}
 			movies = append(movies, movie)
-			log.Printf("\t\tlen(movies)=%v\n", len(movies))
 		}
 
 		return map[string]interface{}{
@@ -74,7 +71,7 @@ func KevinBaconInOut(star string, stars, movieTitles, directors map[string]bool,
 	movieGraph.BFS(star, stars, movieTitles, directors, depth)
 }
 
-func buildToSearch(p graphql.ResolveParams, star string, movieTitle string, director string) []string {
+func buildToSearch(star string, movieTitle string, director string) []string {
 	var toSearch []string
 	if star != "" {
 		toSearch = append(toSearch, star)

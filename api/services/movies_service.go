@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -43,6 +44,15 @@ func (s *MoviesService) GetMovie(c context.Context, movieID string) (data.Movie,
 		return data.Movie{}, fmt.Errorf("failed to fetch movie with id %s", movieID)
 	}
 	return movie, nil
+}
+
+func (s *MoviesService) GetMovies(c context.Context, movieIDs []string) ([]data.Movie, error) {
+	movies, err := s.repo.GetMoviesByID(c, movieIDs, constants.CART)
+	if err != nil {
+		utils.LogError("err fetching movies", err)
+		return nil, errors.New("failed to fetch movie")
+	}
+	return movies, nil
 }
 
 func (s *MoviesService) GetTrivia(c context.Context, movieID string) (data.MovieTrivia, error) {

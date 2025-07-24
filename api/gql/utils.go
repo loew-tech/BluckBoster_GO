@@ -2,7 +2,7 @@ package gql
 
 import (
 	"blockbuster/api/constants"
-	"blockbuster/api/repos"
+	"blockbuster/api/services"
 	"blockbuster/api/utils"
 	"errors"
 	"fmt"
@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	movieRepo  = repos.NewMovieRepoWithDynamo()
-	memberRepo = repos.NewMemberRepoWithDynamo()
+	movieService  = services.GetMovieService()
+	memberService = services.GetMemberService()
 )
 
 // getStringArg safely extracts a required string arg from the resolver params.
