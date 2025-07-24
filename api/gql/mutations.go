@@ -2,14 +2,13 @@
 package gql
 
 import (
-	"errors"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/graphql-go/graphql"
 
 	"blockbuster/api/constants"
-	"blockbuster/api/utils"
 )
 
 var ReturnRentalsField = &graphql.Field{
@@ -21,11 +20,11 @@ var ReturnRentalsField = &graphql.Field{
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 		username, err := getStringArg(p, constants.USERNAME, "returnRentals")
 		if err != nil {
-			return nil, err
+			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		ids := extractIDList(p.Args[constants.MOVIE_IDS])
 		if len(ids) == 0 {
-			return nil, utils.LogError("movieIds argument is required for returnRentals mutation", nil)
+			return nil, getFormattedError("movieIds argument is required for returnRentals mutation", http.StatusBadRequest)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
@@ -33,7 +32,7 @@ var ReturnRentalsField = &graphql.Field{
 		}
 		messages, _, err := memberRepo.Return(ctx, username, ids)
 		if err != nil {
-			return nil, utils.LogError(fmt.Sprintf("failed to return rentals for user %s", username), err)
+			return nil, getFormattedError(fmt.Sprintf("failed to return rentals for user %s", username), http.StatusInternalServerError)
 		}
 		return messages, nil
 	},
@@ -49,11 +48,11 @@ var UpdateCartField = &graphql.Field{
 	Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 		username, err := getStringArg(p, constants.USERNAME, "updateCart")
 		if err != nil {
-			return nil, err
+			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		movieID, err := getStringArg(p, constants.MOVIE_ID, "updateCart")
 		if err != nil {
-			return nil, err
+			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		shouldRemoveFromCart, _ := p.Args[constants.REMOVE_FROM_CART].(bool)
 		action := constants.ADD
@@ -66,9 +65,9 @@ var UpdateCartField = &graphql.Field{
 		}
 		inserted, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
 		if err != nil {
-			return nil, utils.LogError(fmt.Sprintf("error modifying cart for user %s", username), err)
+			return nil, getFormattedError(fmt.Sprintf("error modifying cart for user %s", username), http.StatusInternalServerError)
 		} else if !inserted {
-			return fmt.Sprintf("failed to modify cart for %s", username), nil
+			return fmt.Sprintf("did not modify cart for %s", username), nil
 		}
 		return constants.SUCCESS, nil
 	},
@@ -87,16 +86,15 @@ var CheckoutField = &graphql.Field{
 		}
 		ids := extractIDList(p.Args[constants.MOVIE_IDS])
 		if len(ids) == 0 {
-			msg := "movieIds argument is required for checkout mutation"
-			return nil, errors.New(msg)
+			return nil, getFormattedError("non-empty movieIds argument is required for checkout mutation", http.StatusBadRequest)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
-			return nil, err
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		messages, _, err := memberRepo.Checkout(ctx, username, ids)
 		if err != nil {
-			return nil, utils.LogError(fmt.Sprintf("failed to checkout for user %s:", username), err)
+			return nil, getFormattedError(fmt.Sprintf("failed to checkout for user %s:", username), http.StatusInternalServerError)
 		}
 		return messages, nil
 	},
@@ -118,12 +116,11 @@ var SetAPIChoiceField = &graphql.Field{
 		}
 		apiChoice, ok := p.Args[constants.API_CHOICE].(string)
 		if !ok || apiChoice == "" {
-			msg := "apiChoice argument is required for setAPIChoice mutation"
-			return nil, errors.New(msg)
+			return nil, getFormattedError("apiChoice argument is required for setAPIChoice mutation", http.StatusBadRequest)
 		}
 		if apiChoice != constants.REST_API && apiChoice != constants.GRAPHQL_API {
 			msg := fmt.Sprintf("apiChoice must be either %s or %s", constants.REST_API, constants.GRAPHQL_API)
-			return nil, errors.New(msg)
+			return nil, getFormattedError(msg, http.StatusBadRequest)
 		}
 		ctx, err := getContext(p)
 		if err != nil {
@@ -132,7 +129,8 @@ var SetAPIChoiceField = &graphql.Field{
 		}
 		err = memberRepo.SetMemberAPIChoice(ctx, username, apiChoice)
 		if err != nil {
-			return nil, utils.LogError("", err)
+			msg := fmt.Sprintf("failed to set %s api selection to %s", username, apiChoice)
+			return nil, getFormattedError(msg, http.StatusInternalServerError)
 		}
 		return fmt.Sprintf("successfully set %s api choice to %s", username, apiChoice), nil
 	},

@@ -1,6 +1,7 @@
 package gql
 
 import (
+	"blockbuster/api/constants"
 	"blockbuster/api/repos"
 	"blockbuster/api/utils"
 	"errors"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/gqlerrors"
 )
 
 var (
@@ -43,4 +45,13 @@ func SetToList[T comparable](set map[T]bool) []T {
 		list = append(list, item)
 	}
 	return list
+}
+
+func getFormattedError(msg string, status int) gqlerrors.FormattedError {
+	return gqlerrors.FormattedError{
+		Message: msg,
+		Extensions: map[string]interface{}{
+			constants.CODE: status,
+		},
+	}
 }
