@@ -29,7 +29,7 @@ var ReturnRentalsField = &graphql.Field{
 		if err != nil {
 			return nil, err
 		}
-		messages, _, err := memberRepo.Return(ctx, username, ids)
+		messages, _, err := memberService.Return(ctx, username, ids)
 		if err != nil {
 			return nil, getFormattedError(fmt.Sprintf("failed to return rentals for user %s", username), http.StatusInternalServerError)
 		}
@@ -54,15 +54,16 @@ var UpdateCartField = &graphql.Field{
 			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
 		shouldRemoveFromCart, _ := p.Args[constants.REMOVE_FROM_CART].(bool)
-		action := constants.ADD
-		if shouldRemoveFromCart {
-			action = constants.DELETE
-		}
 		ctx, err := getContext(p)
 		if err != nil {
 			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
-		inserted, err := memberRepo.ModifyCart(ctx, username, movieID, action, false)
+		var inserted bool
+		if shouldRemoveFromCart {
+			inserted, err = memberService.RemoveFromCart(ctx, username, movieID)
+		} else {
+			inserted, err = memberService.AddToCart(ctx, username, movieID)
+		}
 		if err != nil {
 			return nil, getFormattedError(fmt.Sprintf("error modifying cart for user %s", username), http.StatusInternalServerError)
 		} else if !inserted {
@@ -91,7 +92,7 @@ var CheckoutField = &graphql.Field{
 		if err != nil {
 			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
-		messages, _, err := memberRepo.Checkout(ctx, username, ids)
+		messages, _, err := memberService.Checkout(ctx, username, ids)
 		if err != nil {
 			return nil, getFormattedError(fmt.Sprintf("failed to checkout for user %s:", username), http.StatusInternalServerError)
 		}
@@ -125,10 +126,9 @@ var SetAPIChoiceField = &graphql.Field{
 		if err != nil {
 			return nil, getFormattedError(err.Error(), http.StatusBadRequest)
 		}
-		err = memberRepo.SetMemberAPIChoice(ctx, username, apiChoice)
+		err = memberService.SetAPIChoice(ctx, username, apiChoice)
 		if err != nil {
-			msg := fmt.Sprintf("failed to set %s api selection to %s", username, apiChoice)
-			return nil, getFormattedError(msg, http.StatusInternalServerError)
+			return nil, getFormattedError(err.Error(), http.StatusInternalServerError)
 		}
 		return fmt.Sprintf("successfully set %s api choice to %s", username, apiChoice), nil
 	},

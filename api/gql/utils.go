@@ -2,7 +2,6 @@ package gql
 
 import (
 	"blockbuster/api/constants"
-	"blockbuster/api/repos"
 	"blockbuster/api/services"
 	"blockbuster/api/utils"
 	"errors"
@@ -16,7 +15,6 @@ import (
 
 var (
 	movieService  = services.GetMovieService()
-	memberRepo    = repos.NewMemberRepoWithDynamo()
 	memberService = services.GetMemberService()
 )
 
