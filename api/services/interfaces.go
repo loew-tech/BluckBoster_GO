@@ -7,7 +7,7 @@ import (
 )
 
 type MembersServiceInterface interface {
-	GetMember(ctx context.Context, username string) (data.Member, error)
+	GetMember(ctx context.Context, username string, forCart bool) (data.Member, error)
 	Login(ctx context.Context, username string) (data.Member, error)
 	GetCartIDs(ctx context.Context, username string) ([]string, error)
 	GetCartMovies(ctx context.Context, username string) ([]data.Movie, error)

@@ -42,7 +42,7 @@ func (h *MembersHandler) GetMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": err.Error()})
 		return
 	}
-	member, err := h.service.GetMember(c.Request.Context(), username)
+	member, err := h.service.GetMember(c.Request.Context(), username, constants.NOT_CART)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("error occured retrieving user %s", username)})
 		return

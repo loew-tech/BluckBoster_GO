@@ -28,8 +28,8 @@ func GetMemberService() *MembersService {
 	return membersService
 }
 
-func (s *MembersService) GetMember(c context.Context, username string) (data.Member, error) {
-	member, err := s.repo.GetMemberByUsername(c, username, constants.NOT_CART)
+func (s *MembersService) GetMember(c context.Context, username string, forCart bool) (data.Member, error) {
+	member, err := s.repo.GetMemberByUsername(c, username, forCart)
 	if err != nil {
 		utils.LogError(fmt.Sprintf("failed to retrieve user %s", username), err)
 		return data.Member{}, fmt.Errorf("failed to retrieve user %s", username)
