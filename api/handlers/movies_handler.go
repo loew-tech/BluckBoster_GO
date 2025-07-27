@@ -23,6 +23,12 @@ func NewMoviesHandler() *MoviesHandler {
 	}
 }
 
+func NewMoviesHandlerWithService(service services.MoviesServiceInterface) *MoviesHandler {
+	return &MoviesHandler{
+		service: service,
+	}
+}
+
 func (h *MoviesHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/movies", h.GetMoviesByPage)
 	rg.GET("/movies/:movieID", h.GetMovie)

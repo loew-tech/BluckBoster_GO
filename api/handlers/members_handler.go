@@ -22,6 +22,12 @@ func NewMembersHandler() *MembersHandler {
 	}
 }
 
+func NewMembersHandlerWithService(service services.MembersServiceInterface) *MembersHandler {
+	return &MembersHandler{
+		service: service,
+	}
+}
+
 func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/members/:username", h.GetMember)
 	rg.POST("/members/login", h.Login)
