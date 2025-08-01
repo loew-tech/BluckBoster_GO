@@ -17,12 +17,12 @@ import (
 const membersTableName = "BluckBoster_members"
 
 type MemberRepo struct {
-	client    *dynamodb.Client
+	client    DynamoClientInterface
 	tableName string
 	movieRepo ReadWriteMovieRepo
 }
 
-func newMembersRepo(client *dynamodb.Client, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
+func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
 	return &MemberRepo{
 		client:    client,
 		tableName: membersTableName,

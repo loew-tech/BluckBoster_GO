@@ -18,7 +18,7 @@ var (
 func NewMovieRepoWithDynamo() ReadWriteMovieRepo {
 	movieRepoOnce.Do(func() {
 		client := utils.GetDynamoClient()
-		movieRepoInstance = newDynamoMovieRepo(client)
+		movieRepoInstance = NewDynamoMovieRepo(client)
 	})
 	return movieRepoInstance
 }
@@ -28,7 +28,7 @@ func NewMemberRepoWithDynamo() MemberRepoInterface {
 	memberRepoOnce.Do(func() {
 		client := utils.GetDynamoClient()
 		movieRepo := NewMovieRepoWithDynamo()
-		memberRepoInstance = newMembersRepo(client, movieRepo)
+		memberRepoInstance = NewMembersRepo(client, movieRepo)
 	})
 	return memberRepoInstance
 }

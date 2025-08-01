@@ -19,11 +19,11 @@ import (
 const movieTableName = "BluckBoster_movies"
 
 type DynamoMovieRepo struct {
-	client    *dynamodb.Client
+	client    DynamoClientInterface
 	tableName string
 }
 
-func newDynamoMovieRepo(client *dynamodb.Client) *DynamoMovieRepo {
+func NewDynamoMovieRepo(client DynamoClientInterface) *DynamoMovieRepo {
 	return &DynamoMovieRepo{
 		client:    client,
 		tableName: movieTableName,
