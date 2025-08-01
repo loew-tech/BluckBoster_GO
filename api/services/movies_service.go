@@ -28,6 +28,10 @@ func GetMovieService() *MoviesService {
 	return moviesService
 }
 
+func NewMovieserviceWithRepo(repo repos.MovieReadRepo) *MoviesService {
+	return &MoviesService{repo: repo}
+}
+
 func (s *MoviesService) GetMoviesByPage(c context.Context, page string) ([]data.Movie, error) {
 	movies, err := s.repo.GetMoviesByPage(c, page, constants.NOT_FOR_GRAPH)
 	if err != nil {

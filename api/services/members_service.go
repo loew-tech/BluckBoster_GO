@@ -28,6 +28,10 @@ func GetMemberService() *MembersService {
 	return membersService
 }
 
+func NewMemberServiceWithRepo(repo repos.MemberRepoInterface) *MembersService {
+	return &MembersService{repo: repo}
+}
+
 func (s *MembersService) GetMember(c context.Context, username string, forCart bool) (data.Member, error) {
 	member, err := s.repo.GetMemberByUsername(c, username, forCart)
 	if err != nil {
