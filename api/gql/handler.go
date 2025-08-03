@@ -1,4 +1,3 @@
-// File: handler.go
 package gql
 
 import (
