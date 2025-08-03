@@ -46,6 +46,11 @@ func GetGQLHandler() func(*gin.Context) {
 	}
 }
 
+// @TODO: Should this be injected at construction time?
+func SetMovieGraph(graph graphsearch.MovieGraphInterface) {
+	movieGraph = graph
+}
+
 type contextKeyGin struct{}
 
 var ginContextKey = contextKeyGin{}
