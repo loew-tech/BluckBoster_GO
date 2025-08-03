@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,36 +13,13 @@ import (
 
 	"blockbuster/api/data"
 	"blockbuster/api/handlers"
+	"blockbuster/api/services"
 )
-
-type MockMoviesService struct {
-	mock.Mock
-}
-
-func (m *MockMoviesService) GetMoviesByPage(ctx context.Context, pageKey string) ([]data.Movie, error) {
-	args := m.Called(ctx, pageKey)
-	return args.Get(0).([]data.Movie), args.Error(1)
-}
-
-func (m *MockMoviesService) GetMovie(ctx context.Context, id string) (data.Movie, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(data.Movie), args.Error(1)
-}
-
-func (m *MockMoviesService) GetMovies(ctx context.Context, ids []string) ([]data.Movie, error) {
-	args := m.Called(ctx, ids)
-	return args.Get(0).([]data.Movie), args.Error(1)
-}
-
-func (m *MockMoviesService) GetTrivia(ctx context.Context, id string) (data.MovieTrivia, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(data.MovieTrivia), args.Error(1)
-}
 
 func TestGetMoviesByPage_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMoviesService)
+	mockService := new(services.MockMoviesService)
 	h := handlers.NewMoviesHandlerWithService(mockService)
 	r.GET("/movies", h.GetMoviesByPage)
 
@@ -64,7 +40,7 @@ func TestGetMoviesByPage_Success(t *testing.T) {
 func TestGetMoviesByPage_InvalidPage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMoviesService)
+	mockService := new(services.MockMoviesService)
 	h := handlers.NewMoviesHandlerWithService(mockService)
 	r.GET("/movies", h.GetMoviesByPage)
 
@@ -79,7 +55,7 @@ func TestGetMoviesByPage_InvalidPage(t *testing.T) {
 func TestGetMovie_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMoviesService)
+	mockService := new(services.MockMoviesService)
 	h := handlers.NewMoviesHandlerWithService(mockService)
 	r.GET("/movies/:movieID", h.GetMovie)
 
@@ -97,7 +73,7 @@ func TestGetMovie_Success(t *testing.T) {
 func TestGetMovie_NotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMoviesService)
+	mockService := new(services.MockMoviesService)
 	h := handlers.NewMoviesHandlerWithService(mockService)
 	r.GET("/movies/:movieID", h.GetMovie)
 
@@ -114,7 +90,7 @@ func TestGetMovie_NotFound(t *testing.T) {
 func TestGetTrivia_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMoviesService)
+	mockService := new(services.MockMoviesService)
 	h := handlers.NewMoviesHandlerWithService(mockService)
 	r.GET("/movies/:movieID/trivia", h.GetTrivia)
 
@@ -132,7 +108,7 @@ func TestGetTrivia_Success(t *testing.T) {
 func TestGetTrivia_NotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMoviesService)
+	mockService := new(services.MockMoviesService)
 	h := handlers.NewMoviesHandlerWithService(mockService)
 	r.GET("/movies/:movieID/trivia", h.GetTrivia)
 
