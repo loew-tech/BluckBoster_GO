@@ -27,6 +27,10 @@ func SetMemberService(svc services.MembersServiceInterface) {
 	memberService = svc
 }
 
+func SetMovieService(svc services.MoviesServiceInterface) {
+	movieService = svc
+}
+
 // getStringArg safely extracts a required string arg from the resolver params.
 func getStringArg(p graphql.ResolveParams, argName string, field string) (string, error) {
 	val, ok := p.Args[argName].(string)
