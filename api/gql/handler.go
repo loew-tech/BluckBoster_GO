@@ -1,4 +1,3 @@
-// File: handler.go
 package gql
 
 import (
@@ -25,6 +24,7 @@ func GetGQLHandler() func(*gin.Context) {
 		if initMovieGraphErr != nil {
 			log.Printf("Failed to initialize MovieGraph: %v", initMovieGraphErr)
 		}
+		initServices()
 	})
 
 	schema := getSchema()
@@ -41,12 +41,17 @@ func GetGQLHandler() func(*gin.Context) {
 	})
 
 	return func(c *gin.Context) {
-		ctx := context.WithValue(c.Request.Context(), ginContextKey, c)
+		ctx := context.WithValue(c.Request.Context(), GinContextKey, c)
 		c.Request = c.Request.WithContext(ctx)
 		corsHandler.Handler(gqlHandler).ServeHTTP(c.Writer, c.Request)
 	}
 }
 
+// @TODO: Should this be injected at construction time?
+func SetMovieGraph(graph graphsearch.MovieGraphInterface) {
+	movieGraph = graph
+}
+
 type contextKeyGin struct{}
 
-var ginContextKey = contextKeyGin{}
+var GinContextKey = contextKeyGin{}

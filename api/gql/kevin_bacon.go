@@ -29,8 +29,17 @@ var GetKevinBaconField = &graphql.Field{
 
 		depth := min(p.Args[constants.DEPTH].(int), 10)
 		stars := make(map[string]bool)
+		if star != "" {
+			stars[star] = true
+		}
 		movieTitles := make(map[string]bool)
+		if movieTitle != "" {
+			movieTitles[movieTitle] = true
+		}
 		directors := make(map[string]bool)
+		if director != "" {
+			directors[director] = true
+		}
 		for _, s := range toSearch {
 			if _, found := stars[s]; found {
 				continue
