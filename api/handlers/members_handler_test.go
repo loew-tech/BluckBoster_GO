@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,67 +14,13 @@ import (
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
 	"blockbuster/api/handlers"
+	"blockbuster/api/services"
 )
 
-type MockMembersService struct {
-	mock.Mock
-}
-
-func (m *MockMembersService) GetMember(ctx context.Context, username string, isCart bool) (data.Member, error) {
-	args := m.Called(ctx, username, isCart)
-	return *args.Get(0).(*data.Member), args.Error(1)
-}
-
-func (m *MockMembersService) Login(ctx context.Context, username string) (data.Member, error) {
-	args := m.Called(ctx, username)
-	return *args.Get(0).(*data.Member), args.Error(1)
-}
-
-func (m *MockMembersService) AddToCart(ctx context.Context, username, movieID string) (bool, error) {
-	args := m.Called(ctx, username, movieID)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockMembersService) RemoveFromCart(ctx context.Context, username, movieID string) (bool, error) {
-	args := m.Called(ctx, username, movieID)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockMembersService) Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
-	args := m.Called(ctx, username, movieIDs)
-	return args.Get(0).([]string), args.Int(1), args.Error(2)
-}
-
-func (m *MockMembersService) GetCartIDs(ctx context.Context, username string) ([]string, error) {
-	args := m.Called(ctx, username)
-	return args.Get(0).([]string), args.Error(1)
-}
-
-func (m *MockMembersService) Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error) {
-	args := m.Called(ctx, username, movieIDs)
-	return args.Get(0).([]string), args.Int(1), args.Error(2)
-}
-
-func (m *MockMembersService) GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error) {
-	args := m.Called(ctx, username)
-	return args.Get(0).([]data.Movie), args.Error(1)
-}
-
-func (m *MockMembersService) GetCartMovies(ctx context.Context, username string) ([]data.Movie, error) {
-	args := m.Called(ctx, username)
-	return args.Get(0).([]data.Movie), args.Error(1)
-}
-
-func (m *MockMembersService) SetAPIChoice(ctx context.Context, username, choice string) error {
-	args := m.Called(ctx, username, choice)
-	return args.Error(0)
-}
-
-// tests
 func TestGetCartMovies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.GET("/members/:username/cart", h.GetCartMovies)
 
@@ -96,7 +41,7 @@ func TestGetCartMovies(t *testing.T) {
 func TestReturn(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.POST("/members/return", h.Return)
 
@@ -115,7 +60,7 @@ func TestReturn(t *testing.T) {
 func TestGetCheckedOutMovies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.GET("/members/:username/checkedout", h.GetCheckedOutMovies)
 
@@ -136,7 +81,7 @@ func TestGetCheckedOutMovies(t *testing.T) {
 func TestSetAPIChoice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.PUT("/members/:username", h.SetAPIChoice)
 
@@ -153,7 +98,7 @@ func TestSetAPIChoice(t *testing.T) {
 func TestLogin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.POST("/members/login", h.Login)
 
@@ -173,7 +118,7 @@ func TestLogin(t *testing.T) {
 func TestAddToCart(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.PUT("/members/cart", h.AddToCart)
 
@@ -192,7 +137,7 @@ func TestAddToCart(t *testing.T) {
 func TestRemoveFromCart(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.PUT("/members/cart/remove", h.RemoveFromCart)
 
@@ -211,7 +156,7 @@ func TestRemoveFromCart(t *testing.T) {
 func TestCheckout(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.POST("/members/checkout", h.Checkout)
 
@@ -230,7 +175,7 @@ func TestCheckout(t *testing.T) {
 func TestGetCartIDs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
-	mockService := new(MockMembersService)
+	mockService := new(services.MockMembersService)
 	h := handlers.NewMembersHandlerWithService(mockService)
 	r.GET("/members/:username/cart/ids", h.GetCartIDs)
 

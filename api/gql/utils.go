@@ -4,19 +4,28 @@ import (
 	"blockbuster/api/constants"
 	"blockbuster/api/services"
 	"blockbuster/api/utils"
+	"context"
 	"errors"
 	"fmt"
 	"log"
 
-	"github.com/gin-gonic/gin"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
 )
 
 var (
-	movieService  = services.GetMovieService()
-	memberService = services.GetMemberService()
+	movieService  services.MoviesServiceInterface
+	memberService services.MembersServiceInterface
 )
+
+func initServices() {
+	movieService = services.GetMovieService()
+	memberService = services.GetMemberService()
+}
+
+func SetMemberService(svc services.MembersServiceInterface) {
+	memberService = svc
+}
 
 // getStringArg safely extracts a required string arg from the resolver params.
 func getStringArg(p graphql.ResolveParams, argName string, field string) (string, error) {
@@ -29,10 +38,10 @@ func getStringArg(p graphql.ResolveParams, argName string, field string) (string
 	return val, nil
 }
 
-func getContext(p graphql.ResolveParams) (*gin.Context, error) {
-	ctx, ok := p.Context.Value(ginContextKey).(*gin.Context)
+func getContext(p graphql.ResolveParams) (context.Context, error) {
+	ctx, ok := p.Context.Value(GinContextKey).(context.Context)
 	if !ok {
-		msg := "gin context not found in resolve params"
+		msg := "context not found in resolve params"
 		utils.LogError(msg, nil)
 		return nil, errors.New(msg)
 	}

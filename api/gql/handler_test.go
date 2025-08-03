@@ -56,7 +56,7 @@ func TestGetGQLHandler_ContextInjected(t *testing.T) {
 		h(c)
 		// Assert context value was injected
 		ctx := c.Request.Context()
-		val := ctx.Value(ginContextKey)
+		val := ctx.Value(GinContextKey)
 		assert.Equal(t, c, val)
 	})
 
@@ -83,7 +83,7 @@ func TestGetGQLHandler_InitError(t *testing.T) {
 
 func TestGinContextKey_Isolated(t *testing.T) {
 	// Ensures ginContextKey doesn't collide
-	ctx := context.WithValue(context.Background(), ginContextKey, "test")
-	val := ctx.Value(ginContextKey)
+	ctx := context.WithValue(context.Background(), GinContextKey, "test")
+	val := ctx.Value(GinContextKey)
 	assert.Equal(t, "test", val)
 }
