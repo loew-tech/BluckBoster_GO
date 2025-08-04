@@ -1,9 +1,10 @@
 package graphsearch
 
 import (
+	"fmt"
+
 	"blockbuster/api/data"
 	"blockbuster/api/utils"
-	"fmt"
 )
 
 type MovieGraph struct {
