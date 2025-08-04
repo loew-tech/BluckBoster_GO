@@ -22,7 +22,7 @@ var GetKevinBaconField = &graphql.Field{
 		movieTitle := p.Args[constants.TITLE].(string)
 		director := p.Args[constants.DIRECTOR].(string)
 		toSearch := buildToSearch(star, movieTitle, director)
-		if len(toSearch) == 0 {
+		if len(toSearch) == 0 && movieTitle == "" {
 			msg := "the KevinBacon search requires at least one star, title, or director"
 			return nil, getFormattedError(msg, http.StatusBadRequest)
 		}
