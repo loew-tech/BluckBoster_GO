@@ -2,9 +2,14 @@ from collections import defaultdict
 import json
 from typing import Dict, List
 
+import boto3
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
+
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('BluckBoster_movies')
 
 
 def get_data(file_path = 'metrics.json') -> pd.DataFrame:
@@ -23,28 +28,28 @@ def get_movies_clusters(data: List[Dict[str, int]], keys: List[str], n_clusters:
     return kmeans
 
 
-def add_centroids_to_dynamo() -> None:
-    pass
+def add_centroids_to_dynamo(metrics: Dict[str, Dict[str, int]], keys: List[str], kmeans: KMeans) -> None:  
+    def add_centroid(movie_id: str, centroid: int) -> None:
+        key = {'id': movie_id}
+        expr_attrs_vals = {':c': centroid}
+        update_expr = 'SET centroid = :c'
+        table.update_item(
+            Key=key,
+            ReturnValues='NONE',
+            UpdateExpression=update_expr,
+            ExpressionAttributeValues=expr_attrs_vals,
+        )
 
-
-def get_centroid(kmeans: KMeans, metrics: Dict[str, Dict[str, int]], keys: List[str]) -> None:
-    clusters = defaultdict(list)
     for movie, mets in metrics.items():
         centroid = kmeans.predict(np.array([mets[k] for k in keys]).reshape(1, -1))[0]
         print(f'prediction: {movie}: {centroid}')
-        clusters[centroid].append(movie)
-
-
-def add_centroid_to_dynamo() -> None:
-    pass
+        add_centroid(movie, int(centroid))
 
 
 if __name__ == '__main__':
     print('hello clustering')
     metric_data = get_data()
     metric_keys = list(metric_data[list(metric_data.keys())[0]].keys())
-    # print(f'{metric_keys=}')
     clusters = get_movies_clusters(metric_data.values(), metric_keys)
-    # print(len(clusters.cluster_centers_), clusters.cluster_centers_)
-    get_centroid(clusters, metric_data, metric_keys)
+    add_centroids_to_dynamo(metric_data, metric_keys, clusters)
     print('All Done :)')
