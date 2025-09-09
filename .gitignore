@@ -104,6 +104,9 @@ instance/
 movies.json
 simpsons.json
 
+# clustering artifacts
+metrics.json
+
 # Sphinx documentation
 docs/_build/
 
