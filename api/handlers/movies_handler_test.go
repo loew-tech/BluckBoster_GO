@@ -87,6 +87,34 @@ func TestGetMovie_NotFound(t *testing.T) {
 	assert.Contains(t, resp.Body.String(), "Movie m999 not found")
 }
 
+func TestGetMovieMetricsHandler(t *testing.T) {
+    gin.SetMode(gin.TestMode)
+    r := gin.Default()
+    mockService := new(services.MockMoviesService)
+    h := handlers.NewMoviesHandlerWithService(mockService)
+    r.GET("/movies/:movieID/metrics", h.GetMovieMetrics) // <-- match handler code
+
+    expected := data.MovieMetrics{
+        Acting:         97,
+        Action:         15,
+        Cinematography: 95,
+    }
+    mockService.On("GetMovieMetrics", mock.Anything, "la_strada_1954").Return(expected, nil)
+
+    req := httptest.NewRequest(http.MethodGet, "/movies/la_strada_1954/metrics", nil)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
+
+    assert.Equal(t, http.StatusOK, w.Code)
+
+    var got data.MovieMetrics
+    err := json.Unmarshal(w.Body.Bytes(), &got)
+    assert.NoError(t, err)
+    assert.Equal(t, expected.Acting, got.Acting)
+    assert.Equal(t, expected.Action, got.Action)
+    assert.Equal(t, expected.Cinematography, got.Cinematography)
+}
+
 func TestGetTrivia_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()

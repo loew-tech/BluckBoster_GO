@@ -164,29 +164,25 @@ func (r *DynamoMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (
 	}
 
 	input := &dynamodb.GetItemInput{
-		Key:       map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
-		TableName: aws.String(r.tableName),
-		// Use ProjectionExpression instead of deprecated AttributesToGet
-		ProjectionExpression: aws.String(constants.METRICS),
+		Key:                  map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
+		TableName:            aws.String(r.tableName),
+		ProjectionExpression: aws.String("mets"),
 	}
-
 	result, err := r.client.GetItem(ctx, input)
 	if err != nil {
 		return data.MovieMetrics{}, utils.LogError("fetching movie metrics from DynamoDB", err)
 	}
 
-	// pull the nested "mets" map
-	metsAttr, ok := result.Item["mets"]
+	// look only at the "mets" map
+	attr, ok := result.Item["mets"]
 	if !ok {
 		return data.MovieMetrics{}, utils.LogError("mets attribute not found", nil)
 	}
 
-	// Unmarshal only the nested map into your struct
 	var metrics data.MovieMetrics
-	if err := attributevalue.Unmarshal(metsAttr, &metrics); err != nil {
+	if err := attributevalue.Unmarshal(attr, &metrics); err != nil {
 		return data.MovieMetrics{}, utils.LogError("unmarshalling movie metrics", err)
 	}
-
 	return metrics, nil
 }
 

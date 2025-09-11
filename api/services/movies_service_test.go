@@ -105,6 +105,19 @@ func TestGetMovies_Error(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestMovieService_GetMovieMetrics(t *testing.T) {
+	service, repo := setupMockMovieService()
+	repo.On("GetMovieMetrics", mock.Anything, "la_strada_1954").
+		Return(data.MovieMetrics{Acting: 97, Action: 15, Cinematography: 95}, nil)
+
+	metrics, err := service.GetMovieMetrics(context.Background(), "la_strada_1954")
+
+	assert.NoError(t, err)
+	assert.Equal(t, 97.0, metrics.Acting)
+	assert.Equal(t, 15.0, metrics.Action)
+	assert.Equal(t, 95.0, metrics.Cinematography)
+}
+
 func TestGetTrivia_Success(t *testing.T) {
 	service, repo := setupMockMovieService()
 	repo.On("GetTrivia", mock.Anything, "m1").
