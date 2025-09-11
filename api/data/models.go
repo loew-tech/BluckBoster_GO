@@ -32,3 +32,17 @@ type Movie struct {
 type MovieTrivia struct {
 	Trivia string `json:"trivia" dynamodbav:"trivia"`
 }
+
+type MovieMetrics struct {
+	Acting         float32 `json:"acting" dynamodbav:"acting"`
+	Action         float32 `json:"action" dynamodbav:"action"`
+	Cinematography float32 `json:"cinematography" dynamodbav:"cinematography"`
+	Comedy         float32 `json:"comedy" dynamodbav:"comedy"`
+	Directing      float32 `json:"directing" dynamodbav:"directing"`
+	Drama          float32 `json:"drama" dynamodbav:"drama"`
+	Fantasy        float32 `json:"fantasy" dynamodbav:"fantasy"`
+	Horror         float32 `json:"horror" dynamodbav:"horror"`
+	Romance        float32 `json:"romance" dynamodbav:"romance"`
+	Suspense       float32 `json:"suspense" dynamodbav:"suspense"`
+	Writing        float32 `json:"writing" dynamodbav:"writing"`
+}
