@@ -24,6 +24,7 @@ const (
 	TITLE            = "title"
 	CAST             = "cast"
 	YEAR             = "year"
+	METRICS          = "mets"
 	TRIVIA           = "trivia"
 	INVENTORY        = "inventory"
 	DIRECTOR         = "director"

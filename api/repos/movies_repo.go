@@ -158,6 +158,38 @@ func (r *DynamoMovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, 
 	return movies, nil
 }
 
+func (r *DynamoMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (data.MovieMetrics, error) {
+	if movieID == "" {
+		return data.MovieMetrics{}, utils.LogError("movieID cannot be empty", nil)
+	}
+
+	input := &dynamodb.GetItemInput{
+		Key:       map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
+		TableName: aws.String(r.tableName),
+		// Use ProjectionExpression instead of deprecated AttributesToGet
+		ProjectionExpression: aws.String(constants.METRICS),
+	}
+
+	result, err := r.client.GetItem(ctx, input)
+	if err != nil {
+		return data.MovieMetrics{}, utils.LogError("fetching movie metrics from DynamoDB", err)
+	}
+
+	// pull the nested "mets" map
+	metsAttr, ok := result.Item["mets"]
+	if !ok {
+		return data.MovieMetrics{}, utils.LogError("mets attribute not found", nil)
+	}
+
+	// Unmarshal only the nested map into your struct
+	var metrics data.MovieMetrics
+	if err := attributevalue.Unmarshal(metsAttr, &metrics); err != nil {
+		return data.MovieMetrics{}, utils.LogError("unmarshalling movie metrics", err)
+	}
+
+	return metrics, nil
+}
+
 func (r *DynamoMovieRepo) Rent(ctx context.Context, movie data.Movie) (bool, error) {
 	input := getUpdateInventoryInput(movie, constants.RENT_MOVIE_INC)
 	return r.updateInventory(ctx, movie, input)

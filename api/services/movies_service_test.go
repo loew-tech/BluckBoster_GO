@@ -32,6 +32,11 @@ func (m *MockMovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, fo
 	return args.Get(0).([]data.Movie), args.Error(1)
 }
 
+func (m *MockMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (data.MovieMetrics, error) {
+	args := m.Called(ctx, movieID)
+	return args.Get(0).(data.MovieMetrics), args.Error(1)
+}
+
 func (m *MockMovieRepo) GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error) {
 	args := m.Called(ctx, movieID)
 	return args.Get(0).(data.MovieTrivia), args.Error(1)
