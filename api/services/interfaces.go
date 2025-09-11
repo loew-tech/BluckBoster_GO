@@ -23,5 +23,6 @@ type MoviesServiceInterface interface {
 	GetMoviesByPage(ctx context.Context, page string) ([]data.Movie, error)
 	GetMovie(ctx context.Context, movieID string) (data.Movie, error)
 	GetMovies(ctx context.Context, movieIDs []string) ([]data.Movie, error)
+	GetMovieMetrics(ctx context.Context, movieID string) (data.MovieMetrics, error)
 	GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error)
 }

@@ -32,6 +32,11 @@ func (m *MockMovieRepo) GetMoviesByID(ctx context.Context, movieIDs []string, fo
 	return args.Get(0).([]data.Movie), args.Error(1)
 }
 
+func (m *MockMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (data.MovieMetrics, error) {
+	args := m.Called(ctx, movieID)
+	return args.Get(0).(data.MovieMetrics), args.Error(1)
+}
+
 func (m *MockMovieRepo) GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error) {
 	args := m.Called(ctx, movieID)
 	return args.Get(0).(data.MovieTrivia), args.Error(1)
@@ -98,6 +103,19 @@ func TestGetMovies_Error(t *testing.T) {
 
 	_, err := service.GetMovies(context.Background(), []string{"bad"})
 	assert.Error(t, err)
+}
+
+func TestMovieService_GetMovieMetrics(t *testing.T) {
+	service, repo := setupMockMovieService()
+	repo.On("GetMovieMetrics", mock.Anything, "la_strada_1954").
+		Return(data.MovieMetrics{Acting: 97, Action: 15, Cinematography: 95}, nil)
+
+	metrics, err := service.GetMovieMetrics(context.Background(), "la_strada_1954")
+
+	assert.NoError(t, err)
+	assert.Equal(t, 97.0, metrics.Acting)
+	assert.Equal(t, 15.0, metrics.Action)
+	assert.Equal(t, 95.0, metrics.Cinematography)
 }
 
 func TestGetTrivia_Success(t *testing.T) {

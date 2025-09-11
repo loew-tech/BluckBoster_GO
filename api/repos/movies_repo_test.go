@@ -95,3 +95,47 @@ func TestReturnMovie_Error(t *testing.T) {
 func reposTestWrapper(client repos.DynamoClientInterface) *repos.DynamoMovieRepo {
 	return repos.NewDynamoMovieRepo(client)
 }
+
+func TestGetMovieMetrics_Success(t *testing.T) {
+	mockClient := new(MockDynamoClient)
+
+	// Fake Dynamo output with nested "mets"
+	fakeOutput := &dynamodb.GetItemOutput{
+		Item: map[string]types.AttributeValue{
+			constants.METRICS: &types.AttributeValueMemberM{
+				Value: map[string]types.AttributeValue{
+					"acting":         &types.AttributeValueMemberN{Value: "97"},
+					"action":         &types.AttributeValueMemberN{Value: "15"},
+					"cinematography": &types.AttributeValueMemberN{Value: "95"},
+				},
+			},
+		},
+	}
+	mockClient.On("GetItem", mock.Anything, mock.Anything).
+		Return(fakeOutput, nil)
+
+	repo := repos.NewDynamoMovieRepo(mockClient)
+	metrics, err := repo.GetMovieMetrics(context.Background(), "la_strada_1954")
+
+	assert.NoError(t, err)
+	assert.Equal(t, 97.0, metrics.Acting)
+	assert.Equal(t, 15.0, metrics.Action)
+	assert.Equal(t, 95.0, metrics.Cinematography)
+}
+
+func TestGetMovieMetrics_NotFound(t *testing.T) {
+	mockClient := new(MockDynamoClient)
+
+	// Return empty item map (no "mets")
+	fakeOutput := &dynamodb.GetItemOutput{
+		Item: map[string]types.AttributeValue{},
+	}
+	mockClient.On("GetItem", mock.Anything, mock.Anything).
+		Return(fakeOutput, nil)
+
+	repo := repos.NewDynamoMovieRepo(mockClient)
+	metrics, err := repo.GetMovieMetrics(context.Background(), "missing_id")
+
+	assert.Error(t, err)
+	assert.Equal(t, data.MovieMetrics{}, metrics)
+}

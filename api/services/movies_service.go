@@ -59,6 +59,15 @@ func (s *MoviesService) GetMovies(c context.Context, movieIDs []string) ([]data.
 	return movies, nil
 }
 
+func (s *MoviesService) GetMovieMetrics(c context.Context, movieID string) (data.MovieMetrics, error) {
+	metrics, err := s.repo.GetMovieMetrics(c, movieID)
+	if err != nil {
+		utils.LogError("failed to get movie metrics", err)
+		return data.MovieMetrics{}, fmt.Errorf("failed to retrieve metrics for %s", movieID)
+	}
+	return metrics, nil
+}
+
 func (s *MoviesService) GetTrivia(c context.Context, movieID string) (data.MovieTrivia, error) {
 	trivia, err := s.repo.GetTrivia(c, movieID)
 	if err != nil {

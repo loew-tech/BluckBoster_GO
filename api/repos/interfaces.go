@@ -19,6 +19,7 @@ type MovieReadRepo interface {
 	GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, error)
 	GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, error)
 	GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error)
+	GetMovieMetrics(ctx context.Context, movieID string) (data.MovieMetrics, error)
 }
 
 type MovieInventoryRepo interface {

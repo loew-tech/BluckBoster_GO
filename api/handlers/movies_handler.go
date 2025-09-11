@@ -32,6 +32,7 @@ func NewMoviesHandlerWithService(service services.MoviesServiceInterface) *Movie
 func (h *MoviesHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/movies", h.GetMoviesByPage)
 	rg.GET("/movies/:movieID", h.GetMovie)
+	rg.GET("/movies/:movieID/metrics", h.GetMovieMetrics)
 	rg.GET("/movies/:movieID/trivia", h.GetTrivia)
 }
 
@@ -71,6 +72,20 @@ func (h *MoviesHandler) GetMovie(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, movie)
+}
+
+func (h *MoviesHandler) GetMovieMetrics(c *gin.Context) {
+	id := c.Param(constants.MOVIE_ID)
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Missing movieID parameter"})
+		return
+	}
+	metrics, err := h.service.GetMovieMetrics(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": fmt.Sprintf("err fetching metrics for movie id %s", id)})
+		return
+	}
+	c.JSON(http.StatusOK, metrics)
 }
 
 func (h *MoviesHandler) GetTrivia(c *gin.Context) {
