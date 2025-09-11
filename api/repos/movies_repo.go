@@ -166,7 +166,7 @@ func (r *DynamoMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (
 	input := &dynamodb.GetItemInput{
 		Key:                  map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
 		TableName:            aws.String(r.tableName),
-		ProjectionExpression: aws.String("mets"),
+		ProjectionExpression: aws.String(constants.METRICS),
 	}
 	result, err := r.client.GetItem(ctx, input)
 	if err != nil {
@@ -174,7 +174,7 @@ func (r *DynamoMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (
 	}
 
 	// look only at the "mets" map
-	attr, ok := result.Item["mets"]
+	attr, ok := result.Item[constants.METRICS]
 	if !ok {
 		return data.MovieMetrics{}, utils.LogError("mets attribute not found", nil)
 	}
