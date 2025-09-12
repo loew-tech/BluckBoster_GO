@@ -260,3 +260,16 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 	}
 	return expr, attrs
 }
+
+func (r *MemberRepo) UpdateMood(c context.Context, currrentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
+	accMood, errs := utils.AccumulateMovieMetricsWithWeight(currrentMood, data.MovieMetrics{}, iteration), []error{}
+	for _, mid := range movieIDs {
+		metrics, err := r.movieRepo.GetMovieMetrics(c, mid)
+		if err != nil {
+			utils.LogError(fmt.Sprintf("failed to retrieve movie metrics for %s", mid), err)
+			continue
+		}
+		accMood = utils.AccumulateMovieMetricsWithWeight(accMood, metrics, 1)
+	}
+	return utils.AverageMetrics(accMood, iteration), errors.Join(errs...)
+}
