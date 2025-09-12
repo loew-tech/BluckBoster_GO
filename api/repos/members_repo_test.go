@@ -112,3 +112,40 @@ func TestReturn_MovieError(t *testing.T) {
 	assert.Nil(t, msgs)
 	assert.Equal(t, 0, count)
 }
+
+func TestUpdateMood_Success(t *testing.T) {
+	repo, _, mockMovieRepo := setupMemberRepo()
+
+	// Fake movie metrics for 2 movies
+	m1 := data.MovieMetrics{Acting: 80, Action: 60, Cinematography: 70}
+	m2 := data.MovieMetrics{Acting: 90, Action: 40, Cinematography: 75}
+
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m1").Return(m1, nil)
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m2").Return(m2, nil)
+
+	cur := data.MovieMetrics{Acting: 70, Action: 50}
+	result, err := repo.UpdateMood(context.Background(), cur, 1, []string{"m1", "m2"})
+
+	assert.NoError(t, err)
+	assert.True(t, result.Acting > 0)
+	assert.True(t, result.Cinematography > 0)
+	// sanity check average effect
+	assert.GreaterOrEqual(t, result.Acting, cur.Acting)
+	assert.Equal(t, (cur.Action+m1.Action+m2.Action)/3, result.Action)
+	assert.Equal(t, (m1.Cinematography+m2.Cinematography)/3, result.Cinematography)
+	mockMovieRepo.AssertExpectations(t)
+}
+
+func TestUpdateMood_ErrorFromMovieRepo(t *testing.T) {
+	repo, _, mockMovieRepo := setupMemberRepo()
+
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "badID").Return(data.MovieMetrics{}, errors.New("metrics not found"))
+
+	cur := data.MovieMetrics{Acting: 50, Action: 50, Cinematography: 50}
+	result, err := repo.UpdateMood(context.Background(), cur, 1, []string{"badID"})
+
+	// Even with error, function returns averaged current mood
+	assert.NoError(t, err) // errors.Join([]) → nil
+	assert.NotZero(t, result.Acting)
+	mockMovieRepo.AssertExpectations(t)
+}

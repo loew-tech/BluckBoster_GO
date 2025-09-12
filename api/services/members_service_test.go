@@ -178,3 +178,37 @@ func TestSetAPIChoice_Error(t *testing.T) {
 	err := service.SetAPIChoice(context.Background(), "john", "bad")
 	assert.Error(t, err)
 }
+
+// --- Tests ---
+func TestMembersService_UpdateMood(t *testing.T) {
+	ctx := context.Background()
+	service, mockRepo := setupMockService()
+
+	initialMood := data.MovieMetrics{Acting: 10, Action: 20, Cinematography: 30}
+	movieIDs := []string{"m1", "m2"}
+
+	t.Run("success", func(t *testing.T) {
+		expectedMood := data.MovieMetrics{Acting: 50, Action: 60, Cinematography: 70}
+
+		mockRepo.On("UpdateMood", ctx, initialMood, 1, movieIDs).
+			Return(expectedMood, nil).Once()
+
+		result, err := service.UpdateMood(ctx, initialMood, 1, movieIDs)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedMood, result)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("repo error", func(t *testing.T) {
+		mockRepo.On("UpdateMood", ctx, initialMood, 2, movieIDs).
+			Return(data.MovieMetrics{}, errors.New("db error")).Once()
+
+		result, err := service.UpdateMood(ctx, initialMood, 2, movieIDs)
+
+		assert.Error(t, err)
+		assert.EqualError(t, err, "failed to update mood")
+		assert.Equal(t, data.MovieMetrics{}, result)
+		mockRepo.AssertExpectations(t)
+	})
+}
