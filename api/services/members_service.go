@@ -121,3 +121,12 @@ func (s *MembersService) SetAPIChoice(c context.Context, username, apiChoice str
 	}
 	return nil
 }
+
+func (s *MembersService) UpdateMood(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
+	mood, err := s.repo.UpdateMood(c, currentMood, iteration, movieIDs)
+	if err != nil {
+		utils.LogError("failed to update mood", nil)
+		return data.MovieMetrics{}, fmt.Errorf("failed to update mood")
+	}
+	return mood, nil
+}

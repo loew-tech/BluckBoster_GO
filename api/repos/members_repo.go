@@ -271,5 +271,5 @@ func (r *MemberRepo) UpdateMood(c context.Context, currrentMood data.MovieMetric
 		}
 		accMood = utils.AccumulateMovieMetricsWithWeight(accMood, metrics, 1)
 	}
-	return utils.AverageMetrics(accMood, iteration), errors.Join(errs...)
+	return utils.AverageMetrics(accMood, iteration+len(movieIDs)), errors.Join(errs...)
 }

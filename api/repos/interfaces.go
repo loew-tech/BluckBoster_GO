@@ -40,4 +40,5 @@ type MemberRepoInterface interface {
 	Checkout(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
 	Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
 	SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error
+	UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error)
 }

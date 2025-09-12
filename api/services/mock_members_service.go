@@ -60,3 +60,8 @@ func (m *MockMembersService) SetAPIChoice(ctx context.Context, username, choice 
 	args := m.Called(ctx, username, choice)
 	return args.Error(0)
 }
+
+func (m *MockMembersService) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
+	args := m.Called(ctx, currentMood, iteration, movieIDs)
+	return args.Get(0).(data.MovieMetrics), args.Error(1)
+}
