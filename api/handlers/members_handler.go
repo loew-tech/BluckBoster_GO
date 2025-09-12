@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"blockbuster/api/constants"
+	"blockbuster/api/data"
 	"blockbuster/api/services"
 	"blockbuster/api/utils"
 )
@@ -40,6 +41,7 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/members/return", h.Return)
 	rg.GET("/members/:username/checkedout", h.GetCheckedOutMovies)
 	rg.PUT("/members/:username", h.SetAPIChoice)
+	rg.PUT("/members/mood", h.UpdateMood)
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
@@ -211,4 +213,22 @@ func (h *MembersHandler) SetAPIChoice(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"msg": fmt.Sprintf("API choice set to %s", apiChoice)})
+}
+
+func (h *MembersHandler) UpdateMood(c *gin.Context) {
+	var req struct {
+		CurrentMood data.MovieMetrics `json:"current_mood"`
+		Iteration   int               `json:"iteration"`
+		MovieIDs    []string          `json:"movie_ids"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+		return
+	}
+	newMood, err := h.service.UpdateMood(c.Request.Context(), req.CurrentMood, req.Iteration, req.MovieIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, newMood)
 }

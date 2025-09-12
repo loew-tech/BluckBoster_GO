@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -187,4 +188,84 @@ func TestGetCartIDs(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.Contains(t, resp.Body.String(), "id1")
+}
+
+// --- Tests for UpdateMood ---
+func TestUpdateMoodHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		body           interface{}
+		mockReturn     data.MovieMetrics
+		mockError      error
+		expectedStatus int
+	}{
+		{
+			name: "success",
+			body: gin.H{
+				"current_mood": gin.H{"acting": 50, "action": 30, "cinematography": 70},
+				"iteration":    2,
+				"movie_ids":    []string{"m1", "m2"},
+			},
+			mockReturn:     data.MovieMetrics{Acting: 60, Action: 40, Cinematography: 80},
+			mockError:      nil,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "bad request - invalid json",
+			body: `{"current_mood": "oops"}`, // wrong type
+			// no mock expectations (won’t call service)
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "service error",
+			body: gin.H{
+				"current_mood": gin.H{"acting": 10, "action": 20, "cinematography": 30},
+				"iteration":    1,
+				"movie_ids":    []string{"m1"},
+			},
+			mockReturn:     data.MovieMetrics{},
+			mockError:      errors.New("db down"),
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(services.MockMembersService)
+			handler := handlers.NewMembersHandlerWithService(mockSvc)
+
+			// Only set expectation if valid body and not bad JSON
+			if tt.expectedStatus != http.StatusBadRequest {
+				mockSvc.On("UpdateMood", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(tt.mockReturn, tt.mockError)
+			}
+
+			w := httptest.NewRecorder()
+			c, r := gin.CreateTestContext(w)
+			r.PUT("/members/mood", handler.UpdateMood)
+
+			var reqBody []byte
+			switch b := tt.body.(type) {
+			case string: // raw invalid JSON
+				reqBody = []byte(b)
+			default:
+				reqBody, _ = json.Marshal(b)
+			}
+			req, _ := http.NewRequest(http.MethodPut, "/members/mood", bytes.NewBuffer(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+			c.Request = req
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedStatus == http.StatusOK {
+				var resp data.MovieMetrics
+				err := json.Unmarshal(w.Body.Bytes(), &resp)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.mockReturn, resp)
+			}
+		})
+	}
 }
