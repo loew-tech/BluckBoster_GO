@@ -2,19 +2,21 @@ package graphsearch
 
 import (
 	"fmt"
+	"math/rand"
 
 	"blockbuster/api/data"
 	"blockbuster/api/utils"
 )
 
 type MovieGraph struct {
-	directedMovies    map[string][]data.Movie
-	starredWith       map[string]map[string]bool
-	starredIn         map[string][]data.Movie
-	NumDirectors      int
-	NumStars          int
-	NumMovies         int
-	movieTitleToMovie map[string]data.Movie
+	directedMovies     map[string][]data.Movie
+	starredWith        map[string]map[string]bool
+	starredIn          map[string][]data.Movie
+	NumDirectors       int
+	NumStars           int
+	NumMovies          int
+	movieTitleToMovie  map[string]data.Movie
+	centroidToMovieIDs map[int][]string
 }
 
 // BFS traverses the graph starting from an actor and collects related stars, movies, and directors.
@@ -105,6 +107,13 @@ func (g *MovieGraph) GetMovieFromTitle(title string) (data.Movie, error) {
 		return movie, nil
 	}
 	return data.TestMovies[0], utils.LogError(fmt.Sprintf("failed to retrieve movie with  %s", title), nil)
+}
+
+func (g *MovieGraph) GetRandomMovieFromCentroid(centroid int) (string, error) {
+	if movieIDs, ok := g.centroidToMovieIDs[centroid]; ok {
+		return movieIDs[rand.Intn(len(movieIDs))], nil
+	}
+	return "", utils.LogError(fmt.Sprintf("failed to retrieve random movie from centroid %d", centroid), nil)
 }
 
 func (g *MovieGraph) TotalStars() int {
