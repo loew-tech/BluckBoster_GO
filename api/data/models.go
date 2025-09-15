@@ -28,6 +28,7 @@ type Movie struct {
 	Metrics   MovieMetrics `json:"metrics,omitempty" dynamodbav:"metrics,omitempty"`
 	Trivia    string       `json:"trivia,omitempty" dynamodbav:"trivia,omitempty"`
 	Year      string       `json:"year,omitempty" dynamodbav:"year,omitempty"`
+	Centroid  int          `json:"centroid,omitempty" dynamodbav:"centroid,omitempty"`
 }
 
 type MovieTrivia struct {

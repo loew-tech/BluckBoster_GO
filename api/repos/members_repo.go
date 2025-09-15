@@ -266,7 +266,7 @@ func (r *MemberRepo) UpdateMood(c context.Context, currrentMood data.MovieMetric
 	for _, mid := range movieIDs {
 		metrics, err := r.movieRepo.GetMovieMetrics(c, mid)
 		if err != nil {
-			utils.LogError(fmt.Sprintf("failed to retrieve movie metrics for %s", mid), err)
+			errs = append(errs, utils.LogError(fmt.Sprintf("failed to retrieve movie metrics for %s", mid), err))
 			continue
 		}
 		accMood = utils.AccumulateMovieMetricsWithWeight(accMood, metrics, 1)
