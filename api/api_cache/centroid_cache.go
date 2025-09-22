@@ -2,7 +2,9 @@ package centroidcache
 
 import (
 	"blockbuster/api/data"
+	"blockbuster/api/utils"
 	"fmt"
+	"sort"
 )
 
 type CentroidCache struct {
@@ -16,9 +18,49 @@ func (c *CentroidCache) GetMetricsByCentroid(centroid int) (data.MovieMetrics, e
 	return c.centroids[centroid], nil
 }
 
-func (c *CentroidCache) GetCentroidsFromMood(mood data.MovieMetrics) []int {
-	// @TODO: implement
-	return []int{}
+func (c *CentroidCache) GetCentroidsFromMood(mood data.MovieMetrics, k int) ([]int, error) {
+	if k <= 0 {
+		return nil, utils.LogError("k must be greater than 0", nil)
+	}
+	type centroidDist struct {
+		id   int
+		dist float64
+	}
+
+	// Euclidean distance between two MovieMetrics
+	distance := func(a, b data.MovieMetrics) float64 {
+		sum := 0.0
+		sum += (a.Acting - b.Acting) * (a.Acting - b.Acting)
+		sum += (a.Action - b.Action) * (a.Action - b.Action)
+		sum += (a.Cinematography - b.Cinematography) * (a.Cinematography - b.Cinematography)
+		sum += (a.Comedy - b.Comedy) * (a.Comedy - b.Comedy)
+		sum += (a.Directing - b.Directing) * (a.Directing - b.Directing)
+		sum += (a.Drama - b.Drama) * (a.Drama - b.Drama)
+		sum += (a.Fantasy - b.Fantasy) * (a.Fantasy - b.Fantasy)
+		sum += (a.Horror - b.Horror) * (a.Horror - b.Horror)
+		sum += (a.Romance - b.Romance) * (a.Romance - b.Romance)
+		sum += (a.StoryTelling - b.StoryTelling) * (a.StoryTelling - b.StoryTelling)
+		sum += (a.Suspense - b.Suspense) * (a.Suspense - b.Suspense)
+		sum += (a.Writing - b.Writing) * (a.Writing - b.Writing)
+		return sum
+	}
+
+	var dists []centroidDist
+	for id, metrics := range c.centroids {
+		d := distance(mood, metrics)
+		dists = append(dists, centroidDist{id: id, dist: d})
+	}
+
+	sort.Slice(dists, func(i, j int) bool {
+		return dists[i].dist < dists[j].dist
+	})
+
+	// Return all centroids sorted by distance (or limit to k if you want)
+	result := make([]int, k)
+	for i := 0; i < k && i < len(dists); i++ {
+		result[i] = dists[i].id
+	}
+	return result, nil
 }
 
 func (c *CentroidCache) SetCentroids(centroids map[int]data.MovieMetrics) {
