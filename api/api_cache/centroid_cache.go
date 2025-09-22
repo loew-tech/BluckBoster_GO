@@ -4,6 +4,7 @@ import (
 	"blockbuster/api/data"
 	"blockbuster/api/utils"
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -56,8 +57,8 @@ func (c *CentroidCache) GetCentroidsFromMood(mood data.MovieMetrics, k int) ([]i
 	})
 
 	// Return all centroids sorted by distance (or limit to k if you want)
-	result := make([]int, k)
-	for i := 0; i < k && i < len(dists); i++ {
+	result := make([]int, int(math.Min(float64(k), float64(len(dists)))))
+	for i := 0; i < len(result); i++ {
 		result[i] = dists[i].id
 	}
 	return result, nil
