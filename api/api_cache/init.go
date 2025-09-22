@@ -24,7 +24,7 @@ func NewCentroidCache() *CentroidCache {
 	return centroidCache
 }
 
-func getCentroidCache() map[int][]data.MovieMetrics {
+func getCentroidCache() map[int]data.MovieMetrics {
 	centroidTableName, client := "BluckBoster_centroids", utils.GetDynamoClient()
 	centroidItems, err := client.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &centroidTableName,
@@ -33,10 +33,15 @@ func getCentroidCache() map[int][]data.MovieMetrics {
 		// @TODO: handle limited functionality from failed cache population
 		return nil
 	}
-	var centroids map[int][]data.MovieMetrics
+	var centroids []data.MovieMetrics
 	err = attributevalue.UnmarshalListOfMaps(centroidItems.Items, &centroids)
 	if err != nil {
 		// @TODO: handle limited functionality from failed cache population
 	}
-	return centroids
+
+	centroidsMap := make(map[int]data.MovieMetrics)
+	for _, centroid := range centroids {
+		centroidsMap[centroid.ID] = centroid
+	}
+	return centroidsMap
 }
