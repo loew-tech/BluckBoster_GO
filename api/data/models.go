@@ -36,6 +36,7 @@ type MovieTrivia struct {
 }
 
 type MovieMetrics struct {
+	ID             int     `json:"id,omitempty" dynamodbav:"id,omitempty"`
 	Acting         float64 `json:"acting" dynamodbav:"acting"`
 	Action         float64 `json:"action" dynamodbav:"action"`
 	Cinematography float64 `json:"cinematography" dynamodbav:"cinematography"`
