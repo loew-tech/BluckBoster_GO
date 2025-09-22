@@ -16,16 +16,16 @@ var (
 	centroidCache *CentroidCache
 )
 
-func NewCentroidCache() *CentroidCache {
+func GetDynamoClientCentroidCache() *CentroidCache {
 	initOnce.Do(func() {
 		centroidCache = &CentroidCache{
-			centroids: getCentroidCache(),
+			centroids: getCentroidsFromDynamo(),
 		}
 	})
 	return centroidCache
 }
 
-func getCentroidCache() map[int]data.MovieMetrics {
+func getCentroidsFromDynamo() map[int]data.MovieMetrics {
 	centroidTableName, client := "BluckBoster_centroids", utils.GetDynamoClient()
 	centroidItems, err := client.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &centroidTableName,

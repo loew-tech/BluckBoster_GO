@@ -13,14 +13,15 @@ type CentroidCache struct {
 	centroids map[int]data.MovieMetrics
 }
 
-func (c *CentroidCache) GetMetricsByCentroid(centroid int) (data.MovieMetrics, error) {
-	if centroid < 0 || centroid >= len(c.centroids) {
-		return data.MovieMetrics{}, fmt.Errorf("centroid %d not found", centroid)
+func (c *CentroidCache) GetMetricsByCentroid(centroidID int) (data.MovieMetrics, error) {
+	centroid, ok := c.centroids[centroidID]
+	if !ok {
+		return data.MovieMetrics{}, fmt.Errorf("centroid %d not found", centroidID)
 	}
-	return c.centroids[centroid], nil
+	return centroid, nil
 }
 
-func (c *CentroidCache) GetCentroidsFromMood(mood data.MovieMetrics, k int) ([]int, error) {
+func (c *CentroidCache) GetKNearestCentroidsFromMood(mood data.MovieMetrics, k int) ([]int, error) {
 	if k <= 0 {
 		return nil, utils.LogError("k must be greater than 0", nil)
 	}
