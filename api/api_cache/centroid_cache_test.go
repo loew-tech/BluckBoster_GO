@@ -9,12 +9,12 @@ import (
 )
 
 func TestSetAndGetMetricsByCentroid(t *testing.T) {
-	cache := &CentroidCache{}
+
 	centroids := map[int]data.MovieMetrics{
 		0: {Acting: 10, Action: 20},
 		1: {Acting: 30, Action: 40},
 	}
-	cache.SetCentroids(centroids)
+	cache := &CentroidCache{centroids: centroids}
 
 	metrics, err := cache.GetMetricsByCentroid(0)
 	assert.NoError(t, err)
@@ -26,12 +26,13 @@ func TestSetAndGetMetricsByCentroid(t *testing.T) {
 }
 
 func TestGetCentroidsFromMood(t *testing.T) {
-	cache := &CentroidCache{}
-	cache.SetCentroids(map[int]data.MovieMetrics{
+
+	centroids := map[int]data.MovieMetrics{
 		0: {Acting: 11, Action: 11},
 		1: {Acting: 20, Action: 20},
 		2: {Acting: 30, Action: 30},
-	})
+	}
+	cache := &CentroidCache{centroids: centroids}
 
 	// Closest to Acting:15, Action:15 should be centroid 1, then 0, then 2
 	mood := data.MovieMetrics{Acting: 15, Action: 15}

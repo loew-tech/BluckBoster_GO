@@ -64,7 +64,3 @@ func (c *CentroidCache) GetCentroidsFromMood(mood data.MovieMetrics, k int) ([]i
 	}
 	return result, nil
 }
-
-func (c *CentroidCache) SetCentroids(centroids map[int]data.MovieMetrics) {
-	c.centroids = centroids
-}
