@@ -1,11 +1,12 @@
 package centroidcache
 
 import (
-	"blockbuster/api/data"
-	"blockbuster/api/utils"
 	"fmt"
 	"math"
 	"sort"
+
+	"blockbuster/api/data"
+	"blockbuster/api/utils"
 )
 
 type CentroidCache struct {

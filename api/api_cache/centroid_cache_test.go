@@ -1,10 +1,11 @@
 package centroidcache
 
 import (
-	"blockbuster/api/data"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"blockbuster/api/data"
 )
 
 func TestSetAndGetMetricsByCentroid(t *testing.T) {

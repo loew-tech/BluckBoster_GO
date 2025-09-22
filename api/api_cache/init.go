@@ -1,13 +1,14 @@
 package centroidcache
 
 import (
-	"blockbuster/api/data"
-	"blockbuster/api/utils"
 	"context"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+
+	"blockbuster/api/data"
+	"blockbuster/api/utils"
 )
 
 var (
