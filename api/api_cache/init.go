@@ -57,7 +57,7 @@ func InitCentroidsToMoviesCache(GetMoviesByPage func(
 	initCentroidsToMoviesCacheOnce.Do(func() {
 		centroidsToMovies := make(map[int][]string)
 		for _, page := range constants.PAGES {
-			movies, err := GetMoviesByPage(context.TODO(), string(page), true)
+			movies, err := GetMoviesByPage(context.Background(), string(page), true)
 			if err != nil {
 				utils.LogError("failed to get movies for centroid to movies cache", err)
 				continue
