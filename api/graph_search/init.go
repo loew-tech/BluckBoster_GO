@@ -31,11 +31,10 @@ func GetMovieGraph() (*MovieGraph, error) {
 // This is useful for tests or alternate data loaders.
 func newMovieGraph(populate func(*MovieGraph) error) (*MovieGraph, error) {
 	graph := &MovieGraph{
-		directedMovies:     make(map[string][]data.Movie),
-		starredWith:        make(map[string]map[string]bool),
-		starredIn:          make(map[string][]data.Movie),
-		movieTitleToMovie:  make(map[string]data.Movie),
-		centroidToMovieIDs: make(map[int][]string),
+		directedMovies:    make(map[string][]data.Movie),
+		starredWith:       make(map[string]map[string]bool),
+		starredIn:         make(map[string][]data.Movie),
+		movieTitleToMovie: make(map[string]data.Movie),
 	}
 	if err := populate(graph); err != nil {
 		return nil, err
@@ -62,7 +61,6 @@ func populateCaches(g *MovieGraph) error {
 		for _, movie := range movies {
 			g.NumMovies++
 			g.movieTitleToMovie[movie.Title] = movie
-			g.centroidToMovieIDs[movie.Centroid] = append(g.centroidToMovieIDs[movie.Centroid], movie.ID)
 
 			// Index by director
 			g.directedMovies[movie.Director] = append(g.directedMovies[movie.Director], movie)

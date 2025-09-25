@@ -1,4 +1,4 @@
-package centroidcache
+package api_cache
 
 import (
 	"fmt"
