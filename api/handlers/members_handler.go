@@ -41,7 +41,9 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/members/return", h.Return)
 	rg.GET("/members/:username/checkedout", h.GetCheckedOutMovies)
 	rg.PUT("/members/:username", h.SetAPIChoice)
-	rg.PUT("/members/mood", h.UpdateMood)
+	rg.PUT("/members/mood/update", h.UpdateMood)
+	rg.GET("/members/mood/initial_voting", h.GetIniitialVotingSlate)
+	rg.PUT("members/mood/iterate", h.IterateRecommendationVoting)
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
@@ -231,4 +233,33 @@ func (h *MembersHandler) UpdateMood(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, newMood)
+}
+
+func (h *MembersHandler) GetIniitialVotingSlate(c *gin.Context) {
+	movieIDs, err := h.service.GetIniitialVotingSlate(c)
+	// @TODO: more elegant way to handle some errors, but still got initial movieIDs
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, movieIDs)
+}
+
+func (h *MembersHandler) IterateRecommendationVoting(c *gin.Context) {
+	var req struct {
+		CurrentMood data.MovieMetrics `json:"current_mood,omitempty"`
+		Iteration   int               `json:"iteration"`
+		MovieIDs    []string          `json:"movie_ids"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+		return
+	}
+	newMood, newMovieIDs, err := h.service.IterateRecommendationVoting(c, req.CurrentMood, req.Iteration, req.MovieIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+		return
+	}
+	// @TODO: remove magic strings
+	c.JSON(http.StatusOK, gin.H{"mood": newMood, "movieIDs": newMovieIDs})
 }

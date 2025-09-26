@@ -18,6 +18,8 @@ type MembersServiceInterface interface {
 	GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error)
 	SetAPIChoice(ctx context.Context, username, apiChoice string) error
 	UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error)
+	GetIniitialVotingSlate(c context.Context) ([]string, error)
+	IterateRecommendationVoting(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error)
 }
 
 type MoviesServiceInterface interface {

@@ -129,3 +129,19 @@ func (s *MembersService) UpdateMood(c context.Context, currentMood data.MovieMet
 	}
 	return mood, nil
 }
+
+func (s *MembersService) GetIniitialVotingSlate(c context.Context) ([]string, error) {
+	movieIDs, err := s.repo.GetIniitialVotingSlate(c)
+	if err != nil {
+		return movieIDs, utils.LogError("errs occurred in getting initial voting slate", nil)
+	}
+	return movieIDs, nil
+}
+
+func (s *MembersService) IterateRecommendationVoting(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
+	mood, newMovieIDs, err := s.repo.IterateRecommendationVoting(c, currentMood, iteration, movieIDs)
+	if err != nil {
+		return mood, newMovieIDs, utils.LogError("iterated recommendation voting with errs", nil)
+	}
+	return mood, newMovieIDs, nil
+}

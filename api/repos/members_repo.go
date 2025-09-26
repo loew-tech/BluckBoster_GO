@@ -272,16 +272,16 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 }
 
 func (r *MemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
-	movieIDs := make([]string, 0, 7)
+	movieIDs, errs := make([]string, 7), []error{}
 	for i := range movieIDs {
 		mid, err := r.centroidsToMovies.GetRandomMovieFromCentroid(r.randGen.Intn(r.centroids.Size()))
 		if err != nil {
-			utils.LogError("failed to attain random movie from centroid", err)
+			errs = append(errs, utils.LogError("failed to attain random movie from centroid", err))
 			continue
 		}
 		movieIDs[i] = mid
 	}
-	return movieIDs, nil
+	return movieIDs, errors.Join(errs...)
 }
 
 func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
@@ -294,18 +294,26 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 		return data.MovieMetrics{}, nil, utils.LogError("getting new centroids", err)
 	}
 
-	var recommendedMovieIDs []string
+	recommendedMovieIDs := make([]string, 0, 7-(iteration*2))
+	usedMovies := make(map[string]bool)
+	errs := []error{}
 	if len(newCentroids) > 0 {
-		for i := 0; i < 7-(iteration*2); i++ {
+		attemptCount, maxAttempt := 0, (7-(iteration*2))*2
+		for len(usedMovies) < 7-(iteration*2) && attemptCount < maxAttempt {
+			attemptCount++
 			movieID, err := r.centroidsToMovies.GetRandomMovieFromCentroid(newCentroids[rand.Intn(len(newCentroids))])
-			if err != nil {
-				utils.LogError("getting random movie from centroid", err)
+			if _, used := usedMovies[movieID]; used {
 				continue
 			}
+			if err != nil {
+				errs = append(errs, utils.LogError("getting random movie from centroid", err))
+				continue
+			}
+			usedMovies[movieID] = true
 			recommendedMovieIDs = append(recommendedMovieIDs, movieID)
 		}
 	}
-	return updatedMood, recommendedMovieIDs, nil
+	return updatedMood, recommendedMovieIDs, errors.Join(errs...)
 }
 
 func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
