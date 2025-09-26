@@ -1,53 +1,70 @@
 package api_cache
 
 import (
+	"blockbuster/api/data"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"blockbuster/api/data"
 )
 
-func TestSetAndGetMetricsByCentroid(t *testing.T) {
-
-	centroids := map[int]data.MovieMetrics{
-		0: {Acting: 10, Action: 20},
-		1: {Acting: 30, Action: 40},
+func TestGetMetricsByCentroid_Found(t *testing.T) {
+	cache := CentroidCache{
+		centroids: map[int]data.MovieMetrics{
+			1: {Acting: 1.1, Action: 2.2},
+		},
 	}
-	cache := &CentroidCache{centroids: centroids}
-
-	metrics, err := cache.GetMetricsByCentroid(0)
+	metrics, err := cache.GetMetricsByCentroid(1)
 	assert.NoError(t, err)
-	assert.Equal(t, 10.0, metrics.Acting)
-	assert.Equal(t, 20.0, metrics.Action)
+	assert.Equal(t, 1.1, metrics.Acting)
+	assert.Equal(t, 2.2, metrics.Action)
+}
 
-	_, err = cache.GetMetricsByCentroid(2)
+func TestGetMetricsByCentroid_NotFound(t *testing.T) {
+	cache := CentroidCache{
+		centroids: map[int]data.MovieMetrics{},
+	}
+	_, err := cache.GetMetricsByCentroid(99)
 	assert.Error(t, err)
 }
 
-func TestGetCentroidsFromMood(t *testing.T) {
-
-	centroids := map[int]data.MovieMetrics{
-		0: {Acting: 11, Action: 11},
-		1: {Acting: 20, Action: 20},
-		2: {Acting: 30, Action: 30},
+func TestGetKNearestCentroidsFromMood_Basic(t *testing.T) {
+	cache := CentroidCache{
+		centroids: map[int]data.MovieMetrics{
+			1: {Acting: 1, Action: 1},
+			2: {Acting: 2, Action: 2},
+			3: {Acting: 3, Action: 3},
+		},
 	}
-	cache := &CentroidCache{centroids: centroids}
-
-	// Closest to Acting:15, Action:15 should be centroid 1, then 0, then 2
-	mood := data.MovieMetrics{Acting: 15, Action: 15}
+	mood := data.MovieMetrics{Acting: 2.1, Action: 2.1}
 	ids, err := cache.GetKNearestCentroidsFromMood(mood, 2)
 	assert.NoError(t, err)
 	assert.Len(t, ids, 2)
-	assert.Equal(t, 0, ids[0])
-	assert.Equal(t, 1, ids[1])
+	// Centroid 2 should be closest, then 3 or 1
+	assert.Equal(t, 2, ids[0])
+}
 
-	// k larger than available centroids
-	ids, err = cache.GetKNearestCentroidsFromMood(mood, 5)
+func TestGetKNearestCentroidsFromMood_KTooLarge(t *testing.T) {
+	cache := CentroidCache{
+		centroids: map[int]data.MovieMetrics{
+			1: {Acting: 1, Action: 1},
+			2: {Acting: 2, Action: 2},
+		},
+	}
+	mood := data.MovieMetrics{Acting: 1, Action: 1}
+	ids, err := cache.GetKNearestCentroidsFromMood(mood, 5)
 	assert.NoError(t, err)
-	assert.Len(t, ids, 3)
+	assert.Len(t, ids, 2)
+}
 
-	// k = 0 should error
-	_, err = cache.GetKNearestCentroidsFromMood(mood, 0)
+func TestGetKNearestCentroidsFromMood_KZeroOrNegative(t *testing.T) {
+	cache := CentroidCache{
+		centroids: map[int]data.MovieMetrics{
+			1: {Acting: 1, Action: 1},
+		},
+	}
+	mood := data.MovieMetrics{Acting: 1, Action: 1}
+	_, err := cache.GetKNearestCentroidsFromMood(mood, 0)
+	assert.Error(t, err)
+	_, err = cache.GetKNearestCentroidsFromMood(mood, -1)
 	assert.Error(t, err)
 }

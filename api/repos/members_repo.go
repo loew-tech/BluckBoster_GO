@@ -292,14 +292,15 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 }
 
 func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
-	accMood, errs := utils.AccumulateMovieMetricsWithWeight(data.MovieMetrics{}, currentMood, iteration), []error{}
+	accMood, updateCount, errs := utils.AccumulateMovieMetricsWithWeight(data.MovieMetrics{}, currentMood, iteration), 0, []error{}
 	for _, mid := range movieIDs {
 		metrics, err := r.movieRepo.GetMovieMetrics(ctx, mid)
 		if err != nil {
 			errs = append(errs, utils.LogError(fmt.Sprintf("failed to retrieve movie metrics for %s", mid), err))
 			continue
 		}
+		updateCount++
 		accMood = utils.AccumulateMovieMetricsWithWeight(accMood, metrics, 1)
 	}
-	return utils.AverageMetrics(accMood, iteration+len(movieIDs)), errors.Join(errs...)
+	return utils.AverageMetrics(accMood, iteration+updateCount), errors.Join(errs...)
 }
