@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
+	centroidcache "blockbuster/api/api_cache"
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
 	"blockbuster/api/utils"
@@ -17,16 +19,20 @@ import (
 const membersTableName = "BluckBoster_members"
 
 type MemberRepo struct {
-	client    DynamoClientInterface
-	tableName string
-	movieRepo ReadWriteMovieRepo
+	client            DynamoClientInterface
+	tableName         string
+	movieRepo         ReadWriteMovieRepo
+	centroids         centroidcache.CentroidCache
+	centroidsToMovies centroidcache.CentroidsToMoviesCache
 }
 
 func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
 	return &MemberRepo{
-		client:    client,
-		tableName: membersTableName,
-		movieRepo: movieRepo,
+		client:            client,
+		tableName:         membersTableName,
+		movieRepo:         movieRepo,
+		centroids:         *centroidcache.GetDynamoClientCentroidCache(),
+		centroidsToMovies: *centroidcache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage),
 	}
 }
 
@@ -261,15 +267,40 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 	return expr, attrs
 }
 
-func (r *MemberRepo) UpdateMood(c context.Context, currrentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
-	accMood, errs := utils.AccumulateMovieMetricsWithWeight(currrentMood, data.MovieMetrics{}, iteration), []error{}
+func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
+	updatedMood, err := r.UpdateMood(ctx, currentMood, iteration, movieIDs)
+	if err != nil {
+		return data.MovieMetrics{}, nil, utils.LogError("updating mood", err)
+	}
+	newCentroids, err := r.centroids.GetKNearestCentroidsFromMood(updatedMood, 5-iteration)
+	if err != nil {
+		return data.MovieMetrics{}, nil, utils.LogError("getting new centroids", err)
+	}
+
+	var recommendedMovieIDs []string
+	if len(newCentroids) > 0 {
+		for i := 0; i < 7-(iteration*2); i++ {
+			movieID, err := r.centroidsToMovies.GetRandomMovieFromCentroid(newCentroids[rand.Intn(len(newCentroids))])
+			if err != nil {
+				utils.LogError("getting random movie from centroid", err)
+				continue
+			}
+			recommendedMovieIDs = append(recommendedMovieIDs, movieID)
+		}
+	}
+	return updatedMood, recommendedMovieIDs, nil
+}
+
+func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
+	accMood, updateCount, errs := utils.AccumulateMovieMetricsWithWeight(data.MovieMetrics{}, currentMood, iteration), 0, []error{}
 	for _, mid := range movieIDs {
-		metrics, err := r.movieRepo.GetMovieMetrics(c, mid)
+		metrics, err := r.movieRepo.GetMovieMetrics(ctx, mid)
 		if err != nil {
 			errs = append(errs, utils.LogError(fmt.Sprintf("failed to retrieve movie metrics for %s", mid), err))
 			continue
 		}
+		updateCount++
 		accMood = utils.AccumulateMovieMetricsWithWeight(accMood, metrics, 1)
 	}
-	return utils.AverageMetrics(accMood, iteration+len(movieIDs)), errors.Join(errs...)
+	return utils.AverageMetrics(accMood, iteration+updateCount), errors.Join(errs...)
 }

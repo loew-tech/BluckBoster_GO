@@ -62,6 +62,7 @@ func (m *MockReadWriteMovieRepo) Return(ctx context.Context, movie data.Movie) (
 func setupMemberRepo() (repos.MemberRepoInterface, *MockDynamoClient, *MockReadWriteMovieRepo) {
 	dynamo := new(MockDynamoClient)
 	movieRepo := new(MockReadWriteMovieRepo)
+	movieRepo.On("GetMoviesByPage", mock.Anything, mock.Anything, mock.Anything).Return([]data.Movie{}, nil)
 	repo := repos.NewMembersRepo(dynamo, movieRepo)
 	return repo, dynamo, movieRepo
 }
@@ -113,39 +114,80 @@ func TestReturn_MovieError(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
-func TestUpdateMood_Success(t *testing.T) {
-	repo, _, mockMovieRepo := setupMemberRepo()
+func TestUpdateMood_AllSuccess(t *testing.T) {
+	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
 
-	// Fake movie metrics for 2 movies
-	m1 := data.MovieMetrics{Acting: 80, Action: 60, Cinematography: 70}
-	m2 := data.MovieMetrics{Acting: 90, Action: 40, Cinematography: 75}
+	m1 := data.MovieMetrics{Acting: 2, Action: 3}
+	m2 := data.MovieMetrics{Acting: 4, Action: 5}
 
 	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m1").Return(m1, nil)
 	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m2").Return(m2, nil)
 
-	cur := data.MovieMetrics{Acting: 70, Action: 50}
-	result, err := repo.UpdateMood(context.Background(), cur, 1, []string{"m1", "m2"})
+	ctx := context.Background()
+	currentMood := data.MovieMetrics{Acting: 1, Action: 1}
+	iteration := 2
+	movieIDs := []string{"m1", "m2"}
 
+	result, err := repo.UpdateMood(ctx, currentMood, iteration, movieIDs)
 	assert.NoError(t, err)
-	assert.True(t, result.Acting > 0)
-	assert.True(t, result.Cinematography > 0)
-	// sanity check average effect
-	assert.GreaterOrEqual(t, result.Acting, cur.Acting)
-	assert.Equal(t, (cur.Action+m1.Action+m2.Action)/3, result.Action)
-	assert.Equal(t, (m1.Cinematography+m2.Cinematography)/3, result.Cinematography)
+	assert.InDelta(t, 2.0, result.Acting, 0.01)
+	assert.InDelta(t, 2.5, result.Action, 0.01)
 	mockMovieRepo.AssertExpectations(t)
 }
 
-func TestUpdateMood_ErrorFromMovieRepo(t *testing.T) {
-	repo, _, mockMovieRepo := setupMemberRepo()
+func TestUpdateMood_SomeErrors(t *testing.T) {
+	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
 
-	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "badID").Return(data.MovieMetrics{}, errors.New("metrics not found"))
+	m1 := data.MovieMetrics{Acting: 2, Action: 3}
 
-	cur := data.MovieMetrics{Acting: 50, Action: 50, Cinematography: 50}
-	result, err := repo.UpdateMood(context.Background(), cur, 1, []string{"badID"})
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m1").Return(m1, nil)
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m2").Return(data.MovieMetrics{}, errors.New("not found"))
 
-	// Even with error, function returns averaged current mood
-	assert.NoError(t, err) // errors.Join([]) → nil
-	assert.NotZero(t, result.Acting)
+	ctx := context.Background()
+	currentMood := data.MovieMetrics{Acting: 1, Action: 1}
+	iteration := 1
+	movieIDs := []string{"m1", "m2"}
+
+	result, err := repo.UpdateMood(ctx, currentMood, iteration, movieIDs)
+	assert.Error(t, err)
+	assert.InDelta(t, 1.5, result.Acting, 0.01)
+	assert.InDelta(t, 2.0, result.Action, 0.01)
+	mockMovieRepo.AssertExpectations(t)
+}
+
+func TestUpdateMood_AllErrors(t *testing.T) {
+	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m1").Return(data.MovieMetrics{}, errors.New("not found"))
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m2").Return(data.MovieMetrics{}, errors.New("not found"))
+
+	ctx := context.Background()
+	currentMood := data.MovieMetrics{Acting: 5, Action: 5}
+	iteration := 2
+	movieIDs := []string{"m1", "m2"}
+
+	result, err := repo.UpdateMood(ctx, currentMood, iteration, movieIDs)
+	assert.Error(t, err)
+	assert.InDelta(t, 5.0, result.Acting, 0.01)
+	assert.InDelta(t, 5.0, result.Action, 0.01)
+	mockMovieRepo.AssertExpectations(t)
+}
+
+func TestUpdateMood_NoMovies(t *testing.T) {
+	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	ctx := context.Background()
+	currentMood := data.MovieMetrics{Acting: 7, Action: 8}
+	iteration := 3
+	movieIDs := []string{}
+
+	result, err := repo.UpdateMood(ctx, currentMood, iteration, movieIDs)
+	assert.NoError(t, err)
+	assert.InDelta(t, 7.0, result.Acting, 0.01)
+	assert.InDelta(t, 8.0, result.Action, 0.01)
 	mockMovieRepo.AssertExpectations(t)
 }
