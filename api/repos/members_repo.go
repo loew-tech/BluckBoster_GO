@@ -292,7 +292,7 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 }
 
 func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
-	accMood, errs := currentMood, []error{}
+	accMood, errs := utils.AccumulateMovieMetricsWithWeight(data.MovieMetrics{}, currentMood, iteration), []error{}
 	for _, mid := range movieIDs {
 		metrics, err := r.movieRepo.GetMovieMetrics(ctx, mid)
 		if err != nil {
