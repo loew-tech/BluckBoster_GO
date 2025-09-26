@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -24,15 +25,18 @@ type MemberRepo struct {
 	movieRepo         ReadWriteMovieRepo
 	centroids         centroidcache.CentroidCache
 	centroidsToMovies centroidcache.CentroidsToMoviesCache
+	randGen           rand.Rand
 }
 
 func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
+	source := rand.NewSource(time.Now().UnixNano())
 	return &MemberRepo{
 		client:            client,
 		tableName:         membersTableName,
 		movieRepo:         movieRepo,
 		centroids:         *centroidcache.GetDynamoClientCentroidCache(),
 		centroidsToMovies: *centroidcache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage),
+		randGen:           *rand.New(source),
 	}
 }
 
@@ -265,6 +269,19 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 		attrs[":checked_out"] = &types.AttributeValueMemberSS{Value: []string{movieID}}
 	}
 	return expr, attrs
+}
+
+func (r *MemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
+	movieIDs := make([]string, 0, 7)
+	for i := range movieIDs {
+		mid, err := r.centroidsToMovies.GetRandomMovieFromCentroid(r.randGen.Intn(r.centroids.Size()))
+		if err != nil {
+			utils.LogError("failed to attain random movie from centroid", err)
+			continue
+		}
+		movieIDs[i] = mid
+	}
+	return movieIDs, nil
 }
 
 func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
