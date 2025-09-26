@@ -115,8 +115,7 @@ func TestReturn_MovieError(t *testing.T) {
 }
 
 func TestUpdateMood_AllSuccess(t *testing.T) {
-	repoIface, _, mockMovieRepo := setupMemberRepo()
-	repo := repoIface.(*repos.MemberRepo)
+	repo, _, mockMovieRepo := setupMemberRepo()
 
 	m1 := data.MovieMetrics{Acting: 2, Action: 3}
 	m2 := data.MovieMetrics{Acting: 4, Action: 5}

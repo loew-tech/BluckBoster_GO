@@ -65,3 +65,7 @@ func (c *CentroidCache) GetKNearestCentroidsFromMood(mood data.MovieMetrics, k i
 	}
 	return result, nil
 }
+
+func (c *CentroidCache) Size() int {
+	return len(c.centroids)
+}
