@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	centroidcache "blockbuster/api/api_cache"
+	api_cache "blockbuster/api/api_cache"
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
 	"blockbuster/api/utils"
@@ -23,19 +24,21 @@ type MemberRepo struct {
 	client            DynamoClientInterface
 	tableName         string
 	movieRepo         ReadWriteMovieRepo
-	centroids         centroidcache.CentroidCache
-	centroidsToMovies centroidcache.CentroidsToMoviesCache
+	centroids         api_cache.CentroidCacheInterface
+	centroidsToMovies api_cache.CentroidsToMoviesCacheInterface
+	movieMetricCache  map[string]data.MovieMetrics
 	randGen           rand.Rand
 }
 
-func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
+func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo, centroidsCache api_cache.CentroidCacheInterface, centroidsToMovies api_cache.CentroidsToMoviesCacheInterface) MemberRepoInterface {
 	source := rand.NewSource(time.Now().UnixNano())
 	return &MemberRepo{
 		client:            client,
 		tableName:         membersTableName,
 		movieRepo:         movieRepo,
-		centroids:         *centroidcache.GetDynamoClientCentroidCache(),
-		centroidsToMovies: *centroidcache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage),
+		centroids:         centroidsCache,
+		centroidsToMovies: centroidsToMovies,
+		movieMetricCache:  make(map[string]data.MovieMetrics),
 		randGen:           *rand.New(source),
 	}
 }
@@ -272,7 +275,7 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 }
 
 func (r *MemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
-	movieIDs := make([]string, 0, 7)
+	movieIDs := make([]string, 0, constants.MAX_MOVIE_SUGGESTIONS)
 	for i := range movieIDs {
 		mid, err := r.centroidsToMovies.GetRandomMovieFromCentroid(r.randGen.Intn(r.centroids.Size()))
 		if err != nil {
@@ -289,14 +292,14 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 	if err != nil {
 		return data.MovieMetrics{}, nil, utils.LogError("updating mood", err)
 	}
-	newCentroids, err := r.centroids.GetKNearestCentroidsFromMood(updatedMood, 5-iteration)
+	newCentroids, err := r.centroids.GetKNearestCentroidsFromMood(updatedMood, constants.MAX_CENTROIDS_COUNT-iteration)
 	if err != nil {
 		return data.MovieMetrics{}, nil, utils.LogError("getting new centroids", err)
 	}
 
 	var recommendedMovieIDs []string
 	if len(newCentroids) > 0 {
-		for i := 0; i < 7-(iteration*2); i++ {
+		for i := 0; i < constants.MAX_MOVIE_SUGGESTIONS-(iteration*2); i++ {
 			movieID, err := r.centroidsToMovies.GetRandomMovieFromCentroid(newCentroids[rand.Intn(len(newCentroids))])
 			if err != nil {
 				utils.LogError("getting random movie from centroid", err)
@@ -320,4 +323,85 @@ func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetri
 		accMood = utils.AccumulateMovieMetricsWithWeight(accMood, metrics, 1)
 	}
 	return utils.AverageMetrics(accMood, iteration+updateCount), errors.Join(errs...)
+}
+
+func (r *MemberRepo) GetVotingFinalPicks(ctx context.Context, mood data.MovieMetrics) ([]string, error) {
+	centroidIDs, err := r.centroids.GetKNearestCentroidsFromMood(mood, constants.NUMBER_FINAL_PICKS)
+	if err != nil {
+		return nil, utils.LogError("failed to get centroid neighbors", err)
+	}
+
+	suggestions := make([]string, 0, len(centroidIDs))
+	for _, id_ := range centroidIDs {
+		mid, err := r.getNearestNeighborInCentroid(ctx, id_, mood)
+		if err != nil {
+			utils.LogError(fmt.Sprintf("failed to come up with neareset movie in centroid %v", id_), nil)
+		}
+		suggestions = append(suggestions, mid)
+	}
+	return suggestions, nil
+}
+
+func (r *MemberRepo) getNearestNeighborInCentroid(ctx context.Context, centroidID int, mood data.MovieMetrics) (string, error) {
+
+	// @TODO: move into utils and reuse in centroid cache
+	// Euclidean distance between two MovieMetrics
+	distance := func(b data.MovieMetrics) float64 {
+		sum := 0.0
+		sum += (mood.Acting - b.Acting) * (mood.Acting - b.Acting)
+		sum += (mood.Action - b.Action) * (mood.Action - b.Action)
+		sum += (mood.Cinematography - b.Cinematography) * (mood.Cinematography - b.Cinematography)
+		sum += (mood.Comedy - b.Comedy) * (mood.Comedy - b.Comedy)
+		sum += (mood.Directing - b.Directing) * (mood.Directing - b.Directing)
+		sum += (mood.Drama - b.Drama) * (mood.Drama - b.Drama)
+		sum += (mood.Fantasy - b.Fantasy) * (mood.Fantasy - b.Fantasy)
+		sum += (mood.Horror - b.Horror) * (mood.Horror - b.Horror)
+		sum += (mood.Romance - b.Romance) * (mood.Romance - b.Romance)
+		sum += (mood.StoryTelling - b.StoryTelling) * (mood.StoryTelling - b.StoryTelling)
+		sum += (mood.Suspense - b.Suspense) * (mood.Suspense - b.Suspense)
+		sum += (mood.Writing - b.Writing) * (mood.Writing - b.Writing)
+		return sum
+	}
+
+	movieMetrics, err := r.getMovieMetricsForCentroid(ctx, centroidID)
+	if err != nil {
+		return "", err
+	}
+
+	minDistance := math.MaxFloat64
+	nearestNeighbor := ""
+	for mid, mets := range movieMetrics {
+		d := distance(mets)
+		if d < minDistance {
+			nearestNeighbor = mid
+			minDistance = d
+		}
+	}
+	return nearestNeighbor, nil
+}
+
+func (r *MemberRepo) getMovieMetricsForCentroid(ctx context.Context, centroidID int) (map[string]data.MovieMetrics, error) {
+	movies, err := r.centroidsToMovies.GetMovieIDsByCentroid(centroidID)
+	if err != nil || len(movies) == 0 {
+		return nil, utils.LogError(fmt.Sprintf("no movies found for centroid id %v", centroidID), nil)
+	}
+
+	mets := make(map[string]data.MovieMetrics)
+	for _, mid := range movies {
+		// check cache
+		if metrics, ok := r.movieMetricCache[mid]; ok {
+			mets[mid] = metrics
+			continue
+		}
+
+		// populate cache
+		metrics, err := r.movieRepo.GetMovieMetrics(ctx, mid)
+		if err != nil {
+			utils.LogError(fmt.Sprintf("failed to get movie id for movie id %s", mid), nil)
+			continue
+		}
+		r.movieMetricCache[mid] = metrics
+		mets[mid] = metrics
+	}
+	return mets, nil
 }

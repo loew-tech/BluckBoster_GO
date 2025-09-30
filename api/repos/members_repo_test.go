@@ -16,6 +16,57 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// --- Mocks for centroid caches ---
+
+type MockCentroidCache struct {
+	KNearest    []int
+	KNearestErr error
+}
+
+// GetMetricsByCentroid implements api_cache.CentroidCacheInterface.
+func (m *MockCentroidCache) GetMetricsByCentroid(centroidID int) (data.MovieMetrics, error) {
+	panic("unimplemented")
+}
+
+// Size implements api_cache.CentroidCacheInterface.
+func (m *MockCentroidCache) Size() int {
+	return len(m.KNearest)
+}
+
+func (m *MockCentroidCache) GetKNearestCentroidsFromMood(mood data.MovieMetrics, k int) ([]int, error) {
+	if m.KNearestErr != nil {
+		return nil, m.KNearestErr
+	}
+	return m.KNearest, nil
+}
+
+// --- Mocks for centroid to movies caches ---
+
+type MockCentroidsToMoviesCache struct {
+	MoviesByCentroid map[int][]string
+	Err              error
+}
+
+func (m *MockCentroidsToMoviesCache) GetMovieIDsByCentroid(centroidID int) ([]string, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	return m.MoviesByCentroid[centroidID], nil
+}
+
+func (m *MockCentroidsToMoviesCache) GetRandomMovieFromCentroid(centroidID int) (string, error) {
+	if m.Err != nil {
+		return "", m.Err
+	}
+	movies := m.MoviesByCentroid[centroidID]
+	if len(movies) == 0 {
+		return "", errors.New("no movies")
+	}
+	return movies[0], nil
+}
+
+// --- Mocks for MovieReadRepo ---
+
 type MockReadWriteMovieRepo struct {
 	mock.Mock
 }
@@ -59,18 +110,19 @@ func (m *MockReadWriteMovieRepo) Return(ctx context.Context, movie data.Movie) (
 	return args.Bool(0), args.Error(1)
 }
 
-func setupMemberRepo() (repos.MemberRepoInterface, *MockDynamoClient, *MockReadWriteMovieRepo) {
+func setupMemberRepo() (repos.MemberRepoInterface, *MockDynamoClient, *MockReadWriteMovieRepo, *MockCentroidCache, *MockCentroidsToMoviesCache) {
 	dynamo := new(MockDynamoClient)
 	movieRepo := new(MockReadWriteMovieRepo)
-	movieRepo.On("GetMoviesByPage", mock.Anything, mock.Anything, mock.Anything).Return([]data.Movie{}, nil)
-	repo := repos.NewMembersRepo(dynamo, movieRepo)
-	return repo, dynamo, movieRepo
+	centroidCache := MockCentroidCache{}
+	centroidsToMoviesCache := MockCentroidsToMoviesCache{}
+	repo := repos.NewMembersRepo(dynamo, movieRepo, &centroidCache, &centroidsToMoviesCache)
+	return repo, dynamo, movieRepo, &centroidCache, &centroidsToMoviesCache
 }
 
 const membersTableName = "BluckBoster_members"
 
 func TestGetMemberByUsername_NotFound(t *testing.T) {
-	repo, dynamo, _ := setupMemberRepo()
+	repo, dynamo, _, _, _ := setupMemberRepo()
 	input := &dynamodb.GetItemInput{
 		Key:       map[string]types.AttributeValue{"username": &types.AttributeValueMemberS{Value: "notfound"}},
 		TableName: aws.String(membersTableName),
@@ -83,19 +135,19 @@ func TestGetMemberByUsername_NotFound(t *testing.T) {
 }
 
 func TestGetCheckedOutMovies_EmptyUsername(t *testing.T) {
-	repo, _, _ := setupMemberRepo()
+	repo, _, _, _, _ := setupMemberRepo()
 	_, err := repo.GetCheckedOutMovies(context.Background(), "")
 	assert.EqualError(t, err, "username is required to get checkout moves")
 }
 
 func TestSetMemberAPIChoice_Invalid(t *testing.T) {
-	repo, _, _ := setupMemberRepo()
+	repo, _, _, _, _ := setupMemberRepo()
 	err := repo.SetMemberAPIChoice(context.Background(), "john", "invalid")
 	assert.ErrorContains(t, err, "is not valid api selection")
 }
 
 func TestSetMemberAPIChoice_Valid(t *testing.T) {
-	repo, dynamo, _ := setupMemberRepo()
+	repo, dynamo, _, _, _ := setupMemberRepo()
 	dynamo.On("UpdateItem", mock.Anything, mock.Anything).
 		Return(&dynamodb.UpdateItemOutput{}, nil)
 
@@ -104,7 +156,7 @@ func TestSetMemberAPIChoice_Valid(t *testing.T) {
 }
 
 func TestReturn_MovieError(t *testing.T) {
-	repo, _, movieRepo := setupMemberRepo()
+	repo, _, movieRepo, _, _ := setupMemberRepo()
 	movieRepo.On("GetMoviesByID", mock.Anything, []string{"m1"}, constants.NOT_CART).
 		Return([]data.Movie{}, errors.New("fetch error"))
 
@@ -115,7 +167,7 @@ func TestReturn_MovieError(t *testing.T) {
 }
 
 func TestUpdateMood_AllSuccess(t *testing.T) {
-	repo, _, mockMovieRepo := setupMemberRepo()
+	repo, _, mockMovieRepo, _, _ := setupMemberRepo()
 
 	m1 := data.MovieMetrics{Acting: 2, Action: 3}
 	m2 := data.MovieMetrics{Acting: 4, Action: 5}
@@ -136,7 +188,7 @@ func TestUpdateMood_AllSuccess(t *testing.T) {
 }
 
 func TestUpdateMood_SomeErrors(t *testing.T) {
-	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repoIface, _, mockMovieRepo, _, _ := setupMemberRepo()
 	repo := repoIface.(*repos.MemberRepo)
 
 	m1 := data.MovieMetrics{Acting: 2, Action: 3}
@@ -157,7 +209,7 @@ func TestUpdateMood_SomeErrors(t *testing.T) {
 }
 
 func TestUpdateMood_AllErrors(t *testing.T) {
-	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repoIface, _, mockMovieRepo, _, _ := setupMemberRepo()
 	repo := repoIface.(*repos.MemberRepo)
 
 	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m1").Return(data.MovieMetrics{}, errors.New("not found"))
@@ -176,7 +228,7 @@ func TestUpdateMood_AllErrors(t *testing.T) {
 }
 
 func TestUpdateMood_NoMovies(t *testing.T) {
-	repoIface, _, mockMovieRepo := setupMemberRepo()
+	repoIface, _, mockMovieRepo, _, _ := setupMemberRepo()
 	repo := repoIface.(*repos.MemberRepo)
 
 	ctx := context.Background()
@@ -189,4 +241,54 @@ func TestUpdateMood_NoMovies(t *testing.T) {
 	assert.InDelta(t, 7.0, result.Acting, 0.01)
 	assert.InDelta(t, 8.0, result.Action, 0.01)
 	mockMovieRepo.AssertExpectations(t)
+}
+
+func TestGetVotingFinalPicks_Success(t *testing.T) {
+	repoIface, _, mockMovieRepo, centroidCache, centroidsToMoviesCache := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	// Mock centroid cache returning centroid IDs
+	centroidCache.KNearest = []int{1, 2}
+
+	// Mock centroid-to-movies mapping
+	centroidsToMoviesCache.MoviesByCentroid = map[int][]string{
+		1: {"m1", "n1"},
+		2: {"m2", "n2"},
+	}
+
+	// Mock metrics for the movies
+	m1 := data.MovieMetrics{Acting: 1, Action: 1}
+	m2 := data.MovieMetrics{Acting: 5, Action: 5}
+
+	n1 := data.MovieMetrics{Acting: 100, Action: 100}
+	n2 := data.MovieMetrics{Acting: 100, Action: 100}
+
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m1").Return(m1, nil)
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "m2").Return(m2, nil)
+
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "n1").Return(n1, nil)
+	mockMovieRepo.On("GetMovieMetrics", mock.Anything, "n2").Return(n2, nil)
+
+	ctx := context.Background()
+	mood := data.MovieMetrics{Acting: 2, Action: 2}
+
+	results, err := repo.GetVotingFinalPicks(ctx, mood)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, results)
+	assert.Contains(t, []string{"m1", "m2"}, results[0]) // should pick a valid nearest neighbor
+	mockMovieRepo.AssertExpectations(t)
+}
+
+func TestGetVotingFinalPicks_CentroidError(t *testing.T) {
+	repoIface, _, _, centroidCache, _ := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	centroidCache.KNearestErr = errors.New("centroid fail")
+
+	ctx := context.Background()
+	mood := data.MovieMetrics{Acting: 1, Action: 2}
+
+	results, err := repo.GetVotingFinalPicks(ctx, mood)
+	assert.Error(t, err)
+	assert.Nil(t, results)
 }
