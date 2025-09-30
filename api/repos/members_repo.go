@@ -382,16 +382,19 @@ func (r *MemberRepo) getNearestNeighborInCentroid(ctx context.Context, centroidI
 
 func (r *MemberRepo) getMovieMetricsForCentroid(ctx context.Context, centroidID int) (map[string]data.MovieMetrics, error) {
 	movies, err := r.centroidsToMovies.GetMovieIDsByCentroid(centroidID)
-	if err != nil {
+	if err != nil || len(movies) == 0 {
 		return nil, utils.LogError(fmt.Sprintf("no movies found for centroid id %v", centroidID), nil)
 	}
 
 	mets := make(map[string]data.MovieMetrics)
 	for _, mid := range movies {
+		// check cache
 		if metrics, ok := r.movieMetricCache[mid]; ok {
 			mets[mid] = metrics
 			continue
 		}
+
+		// populate cache
 		metrics, err := r.movieRepo.GetMovieMetrics(ctx, mid)
 		if err != nil {
 			utils.LogError(fmt.Sprintf("failed to get movie id for movie id %s", mid), nil)

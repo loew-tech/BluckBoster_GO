@@ -29,7 +29,12 @@ func NewMemberRepoWithDynamo() MemberRepoInterface {
 	memberRepoOnce.Do(func() {
 		client := utils.GetDynamoClient()
 		movieRepo := NewMovieRepoWithDynamo()
-		memberRepoInstance = NewMembersRepo(client, movieRepo, api_cache.GetDynamoClientCentroidCache(), api_cache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage))
+		memberRepoInstance = NewMembersRepo(
+			client,
+			movieRepo,
+			api_cache.GetDynamoClientCentroidCache(),
+			api_cache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage),
+		)
 	})
 	return memberRepoInstance
 }
