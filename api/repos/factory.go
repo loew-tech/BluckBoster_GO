@@ -3,6 +3,7 @@ package repos
 import (
 	"sync"
 
+	"blockbuster/api/api_cache"
 	"blockbuster/api/utils"
 )
 
@@ -28,7 +29,7 @@ func NewMemberRepoWithDynamo() MemberRepoInterface {
 	memberRepoOnce.Do(func() {
 		client := utils.GetDynamoClient()
 		movieRepo := NewMovieRepoWithDynamo()
-		memberRepoInstance = NewMembersRepo(client, movieRepo)
+		memberRepoInstance = NewMembersRepo(client, movieRepo, api_cache.GetDynamoClientCentroidCache(), api_cache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage))
 	})
 	return memberRepoInstance
 }

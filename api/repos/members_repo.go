@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
-	centroidcache "blockbuster/api/api_cache"
+	api_cache "blockbuster/api/api_cache"
 	"blockbuster/api/constants"
 	"blockbuster/api/data"
 	"blockbuster/api/utils"
@@ -24,20 +24,21 @@ type MemberRepo struct {
 	client            DynamoClientInterface
 	tableName         string
 	movieRepo         ReadWriteMovieRepo
-	centroids         centroidcache.CentroidCache
-	centroidsToMovies centroidcache.CentroidsToMoviesCache
+	centroids         api_cache.CentroidCacheInterface
+	centroidsToMovies api_cache.CentroidsToMoviesCacheInterface
 	movieMetricCache  map[string]data.MovieMetrics
 	randGen           rand.Rand
 }
 
-func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo) MemberRepoInterface {
+func NewMembersRepo(client DynamoClientInterface, movieRepo ReadWriteMovieRepo, centroidsCache api_cache.CentroidCacheInterface, centroidsToMovies api_cache.CentroidsToMoviesCacheInterface) MemberRepoInterface {
 	source := rand.NewSource(time.Now().UnixNano())
 	return &MemberRepo{
 		client:            client,
 		tableName:         membersTableName,
 		movieRepo:         movieRepo,
-		centroids:         *centroidcache.GetDynamoClientCentroidCache(),
-		centroidsToMovies: *centroidcache.InitCentroidsToMoviesCache(movieRepo.GetMoviesByPage),
+		centroids:         centroidsCache,
+		centroidsToMovies: centroidsToMovies,
+		movieMetricCache:  make(map[string]data.MovieMetrics),
 		randGen:           *rand.New(source),
 	}
 }
@@ -330,7 +331,7 @@ func (r *MemberRepo) GetVotingFinalPicks(ctx context.Context, mood data.MovieMet
 		return nil, utils.LogError("failed to get centroid neighbors", err)
 	}
 
-	suggestions := make([]string, len(centroidIDs))
+	suggestions := make([]string, 0, len(centroidIDs))
 	for _, id_ := range centroidIDs {
 		mid, err := r.getNearestNeighborInCentroid(ctx, id_, mood)
 		if err != nil {
@@ -370,11 +371,12 @@ func (r *MemberRepo) getNearestNeighborInCentroid(ctx context.Context, centroidI
 	minDistance := math.MaxFloat64
 	nearestNeighbor := ""
 	for mid, mets := range movieMetrics {
-		if minDistance < distance(mets) {
+		d := distance(mets)
+		if d < minDistance {
 			nearestNeighbor = mid
+			minDistance = d
 		}
 	}
-
 	return nearestNeighbor, nil
 }
 
