@@ -93,7 +93,7 @@ const (
 	REST_ROUTER_GROUP = "/api/v1"
 	GRAPHQL_ENDPOINT  = "/graphql/v1"
 
-	// rec engine
+	// Rec Engine
 	MAX_MOVIE_SUGGESTIONS = 7
 	MAX_CENTROIDS_COUNT   = 5
 	NUMBER_FINAL_PICKS    = 3
