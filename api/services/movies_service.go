@@ -33,7 +33,7 @@ func NewMovieserviceWithRepo(repo repos.MovieReadRepo) *MoviesService {
 }
 
 func (s *MoviesService) GetMoviesByPage(c context.Context, page string) ([]data.Movie, error) {
-	movies, err := s.repo.GetMoviesByPage(c, page, constants.NOT_FOR_GRAPH)
+	movies, err := s.repo.GetMoviesByPage(c, page, constants.FOR_REST_CALL)
 	if err != nil {
 		utils.LogError("", err)
 		return nil, fmt.Errorf("failed to retrieve movies for page %s", page)

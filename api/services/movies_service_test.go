@@ -17,8 +17,8 @@ type MockMovieRepo struct {
 	mock.Mock
 }
 
-func (m *MockMovieRepo) GetMoviesByPage(ctx context.Context, page string, forGraph bool) ([]data.Movie, error) {
-	args := m.Called(ctx, page, forGraph)
+func (m *MockMovieRepo) GetMoviesByPage(ctx context.Context, page string, purpose string) ([]data.Movie, error) {
+	args := m.Called(ctx, page, purpose)
 	return args.Get(0).([]data.Movie), args.Error(1)
 }
 
@@ -50,7 +50,7 @@ func setupMockMovieService() (*services.MoviesService, *MockMovieRepo) {
 
 func TestGetMoviesByPage_Success(t *testing.T) {
 	service, repo := setupMockMovieService()
-	repo.On("GetMoviesByPage", mock.Anything, "A", constants.NOT_FOR_GRAPH).
+	repo.On("GetMoviesByPage", mock.Anything, "A", constants.FOR_REST_CALL).
 		Return([]data.Movie{{ID: "1"}, {ID: "2"}}, nil)
 
 	movies, err := service.GetMoviesByPage(context.Background(), "A")
@@ -60,7 +60,7 @@ func TestGetMoviesByPage_Success(t *testing.T) {
 
 func TestGetMoviesByPage_Error(t *testing.T) {
 	service, repo := setupMockMovieService()
-	repo.On("GetMoviesByPage", mock.Anything, "B", constants.NOT_FOR_GRAPH).
+	repo.On("GetMoviesByPage", mock.Anything, "B", constants.FOR_REST_CALL).
 		Return([]data.Movie{}, errors.New("db error"))
 
 	_, err := service.GetMoviesByPage(context.Background(), "B")

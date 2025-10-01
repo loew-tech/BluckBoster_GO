@@ -343,26 +343,6 @@ func (r *MemberRepo) GetVotingFinalPicks(ctx context.Context, mood data.MovieMet
 }
 
 func (r *MemberRepo) getNearestNeighborInCentroid(ctx context.Context, centroidID int, mood data.MovieMetrics) (string, error) {
-
-	// @TODO: move into utils and reuse in centroid cache
-	// Euclidean distance between two MovieMetrics
-	distance := func(b data.MovieMetrics) float64 {
-		sum := 0.0
-		sum += (mood.Acting - b.Acting) * (mood.Acting - b.Acting)
-		sum += (mood.Action - b.Action) * (mood.Action - b.Action)
-		sum += (mood.Cinematography - b.Cinematography) * (mood.Cinematography - b.Cinematography)
-		sum += (mood.Comedy - b.Comedy) * (mood.Comedy - b.Comedy)
-		sum += (mood.Directing - b.Directing) * (mood.Directing - b.Directing)
-		sum += (mood.Drama - b.Drama) * (mood.Drama - b.Drama)
-		sum += (mood.Fantasy - b.Fantasy) * (mood.Fantasy - b.Fantasy)
-		sum += (mood.Horror - b.Horror) * (mood.Horror - b.Horror)
-		sum += (mood.Romance - b.Romance) * (mood.Romance - b.Romance)
-		sum += (mood.StoryTelling - b.StoryTelling) * (mood.StoryTelling - b.StoryTelling)
-		sum += (mood.Suspense - b.Suspense) * (mood.Suspense - b.Suspense)
-		sum += (mood.Writing - b.Writing) * (mood.Writing - b.Writing)
-		return sum
-	}
-
 	movieMetrics, err := r.getMovieMetricsForCentroid(ctx, centroidID)
 	if err != nil {
 		return "", err
@@ -371,7 +351,7 @@ func (r *MemberRepo) getNearestNeighborInCentroid(ctx context.Context, centroidI
 	minDistance := math.MaxFloat64
 	nearestNeighbor := ""
 	for mid, mets := range movieMetrics {
-		d := distance(mets)
+		d := utils.MetricDistance(mood, mets)
 		if d < minDistance {
 			nearestNeighbor = mid
 			minDistance = d

@@ -73,8 +73,8 @@ type MockReadWriteMovieRepo struct {
 
 // --- MovieReadRepo methods ---
 
-func (m *MockReadWriteMovieRepo) GetMoviesByPage(ctx context.Context, page string, forGraph bool) ([]data.Movie, error) {
-	args := m.Called(ctx, page, forGraph)
+func (m *MockReadWriteMovieRepo) GetMoviesByPage(ctx context.Context, page string, purpose string) ([]data.Movie, error) {
+	args := m.Called(ctx, page, purpose)
 	return args.Get(0).([]data.Movie), args.Error(1)
 }
 

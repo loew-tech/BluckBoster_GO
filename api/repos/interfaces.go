@@ -15,7 +15,7 @@ type DynamoClientInterface interface {
 }
 
 type MovieReadRepo interface {
-	GetMoviesByPage(ctx context.Context, page string, forGraph bool) ([]data.Movie, error)
+	GetMoviesByPage(ctx context.Context, page string, purpose string) ([]data.Movie, error)
 	GetMovieByID(ctx context.Context, movieID string, forCart bool) (data.Movie, error)
 	GetMoviesByID(ctx context.Context, movieIDs []string, forCart bool) ([]data.Movie, error)
 	GetTrivia(ctx context.Context, movieID string) (data.MovieTrivia, error)

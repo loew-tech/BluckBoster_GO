@@ -29,22 +29,23 @@ func GetDynamoClientCentroidCache() *CentroidCache {
 }
 
 func getCentroidsFromDynamo() map[int]data.MovieMetrics {
+	centroidsMap := make(map[int]data.MovieMetrics)
 	centroidTableName, client := "BluckBoster_centroids", utils.GetDynamoClient()
+
 	centroidItems, err := client.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &centroidTableName,
 	})
 	if err != nil {
-		// @TODO: handle limited functionality from failed cache population
+		utils.LogError("failed to scan dynamo table for centroids", err)
 		return nil
 	}
 	var centroids []data.MovieMetrics
 	err = attributevalue.UnmarshalListOfMaps(centroidItems.Items, &centroids)
 	if err != nil {
-		// @TODO: handle limited functionality from failed cache population
+		utils.LogError("failed to unmarshall dynamo table centroid items", err)
 		return nil
 	}
 
-	centroidsMap := make(map[int]data.MovieMetrics)
 	for _, centroid := range centroids {
 		centroidsMap[centroid.ID] = centroid
 	}
@@ -52,12 +53,12 @@ func getCentroidsFromDynamo() map[int]data.MovieMetrics {
 }
 
 func InitCentroidsToMoviesCache(GetMoviesByPage func(
-	ctx context.Context, page string, forGraph bool) ([]data.Movie, error),
+	ctx context.Context, page string, purpose string) ([]data.Movie, error),
 ) *CentroidsToMoviesCache {
 	initCentroidsToMoviesCacheOnce.Do(func() {
 		centroidsToMovies := make(map[int][]string)
 		for _, page := range constants.PAGES {
-			movies, err := GetMoviesByPage(context.Background(), string(page), true)
+			movies, err := GetMoviesByPage(context.Background(), string(page), constants.FOR_CENTROID_CACHE)
 			if err != nil {
 				utils.LogError("failed to get movies for centroid to movies cache", err)
 				continue
