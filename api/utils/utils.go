@@ -81,7 +81,7 @@ func AccumulateMovieMetricsWithWeight(a, b data.MovieMetrics, weight int) data.M
 }
 
 func AverageMetrics(m data.MovieMetrics, count int) data.MovieMetrics {
-	if count == 0 || count == 1 {
+	if count <= 1 {
 		return m
 	}
 	return data.MovieMetrics{

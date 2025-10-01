@@ -297,14 +297,33 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 		return data.MovieMetrics{}, nil, utils.LogError("getting new centroids", err)
 	}
 
+	fmt.Println("\t\t **DEBUG NEW CENTROIDS***", newCentroids)
+
+	movieRecs, originalMovies := make(map[string]bool), make(map[string]bool)
 	var recommendedMovieIDs []string
 	if len(newCentroids) > 0 {
+		for _, mid := range movieIDs {
+			originalMovies[mid] = true
+		}
 		for i := 0; i < constants.MAX_MOVIE_SUGGESTIONS-(iteration*2); i++ {
-			movieID, err := r.centroidsToMovies.GetRandomMovieFromCentroid(newCentroids[rand.Intn(len(newCentroids))])
-			if err != nil {
-				utils.LogError("getting random movie from centroid", err)
+			centroid := newCentroids[rand.Intn(len(newCentroids))]
+			movieID, attempts := "", 0
+			for attempts < 10 {
+				attempts++
+				movieID, err = r.centroidsToMovies.GetRandomMovieFromCentroid(centroid)
+				if err != nil {
+					utils.LogError("error getting random movie from centroid", err)
+					continue
+				}
+				if !originalMovies[movieID] && !movieRecs[movieID] {
+					break // found a unique movie
+				}
+			}
+			if movieID == "" {
+				utils.LogError(fmt.Sprintf("failed to find random movie for centroid %v", centroid), nil)
 				continue
 			}
+			movieRecs[movieID] = true
 			recommendedMovieIDs = append(recommendedMovieIDs, movieID)
 		}
 	}
