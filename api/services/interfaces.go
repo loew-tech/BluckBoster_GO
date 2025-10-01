@@ -17,7 +17,9 @@ type MembersServiceInterface interface {
 	Return(ctx context.Context, username string, movieIDs []string) ([]string, int, error)
 	GetCheckedOutMovies(ctx context.Context, username string) ([]data.Movie, error)
 	SetAPIChoice(ctx context.Context, username, apiChoice string) error
+	GetIniitialVotingSlate(ctx context.Context) ([]string, error)
 	IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error)
+	GetVotingFinalPicks(ctx context.Context, mood data.MovieMetrics) ([]string, error)
 	UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error)
 }
 

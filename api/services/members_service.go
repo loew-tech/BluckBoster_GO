@@ -122,12 +122,22 @@ func (s *MembersService) SetAPIChoice(c context.Context, username, apiChoice str
 	return nil
 }
 
+// @TODO: implement
+func (s *MembersService) GetIniitialVotingSlate(c context.Context) ([]string, error) {
+	return nil, nil
+}
+
 func (s *MembersService) IterateRecommendationVoting(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
 	mood, newMovieIDS, err := s.repo.IterateRecommendationVoting(c, currentMood, iteration, movieIDs)
 	if err != nil {
 		return currentMood, nil, utils.LogError("failed to iterate voting", nil)
 	}
 	return mood, newMovieIDS, nil
+}
+
+// @TODO: implement
+func (s *MembersService) GetVotingFinalPicks(c context.Context, mood data.MovieMetrics) ([]string, error) {
+	return nil, nil
 }
 
 func (s *MembersService) UpdateMood(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {

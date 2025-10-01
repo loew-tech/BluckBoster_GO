@@ -52,9 +52,19 @@ func (m *MockMemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiCh
 	return args.Error(0)
 }
 
+func (m *MockMemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]string), args.Error(0)
+}
+
 func (m *MockMemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
 	args := m.Called(ctx, currentMood, iteration, movieIDs)
 	return args.Get(0).(data.MovieMetrics), args.Get(1).([]string), args.Error(0)
+}
+
+func (m *MockMemberRepo) GetVotingFinalPicks(ctx context.Context, mood data.MovieMetrics) ([]string, error) {
+	args := m.Called(ctx, mood)
+	return args.Get(0).([]string), args.Error(0)
 }
 
 func (m *MockMemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
