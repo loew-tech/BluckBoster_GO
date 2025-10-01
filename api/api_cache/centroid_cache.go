@@ -14,6 +14,10 @@ type CentroidCache struct {
 }
 
 func (c *CentroidCache) GetMetricsByCentroid(centroidID int) (data.MovieMetrics, error) {
+	if c.centroids == nil {
+		return data.MovieMetrics{}, utils.LogError("centroid cache failed to initialize. GetMetricsByCentroid functionality unavailable", nil)
+	}
+
 	centroid, ok := c.centroids[centroidID]
 	if !ok {
 		return data.MovieMetrics{}, fmt.Errorf("centroid %d not found", centroidID)
@@ -22,14 +26,17 @@ func (c *CentroidCache) GetMetricsByCentroid(centroidID int) (data.MovieMetrics,
 }
 
 func (c *CentroidCache) GetKNearestCentroidsFromMood(mood data.MovieMetrics, k int) ([]int, error) {
+	if c.centroids == nil {
+		return nil, utils.LogError("centroid cache failed to initialize. GetKNearestCentroidsFromMood functionality unavailable", nil)
+	}
 	if k <= 0 {
 		return nil, utils.LogError("k must be greater than 0", nil)
 	}
+
 	type centroidDist struct {
 		id   int
 		dist float64
 	}
-
 	// Euclidean distance between two MovieMetrics
 	distance := func(a, b data.MovieMetrics) float64 {
 		sum := 0.0
