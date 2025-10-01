@@ -37,27 +37,9 @@ func (c *CentroidCache) GetKNearestCentroidsFromMood(mood data.MovieMetrics, k i
 		id   int
 		dist float64
 	}
-	// Euclidean distance between two MovieMetrics
-	distance := func(a, b data.MovieMetrics) float64 {
-		sum := 0.0
-		sum += (a.Acting - b.Acting) * (a.Acting - b.Acting)
-		sum += (a.Action - b.Action) * (a.Action - b.Action)
-		sum += (a.Cinematography - b.Cinematography) * (a.Cinematography - b.Cinematography)
-		sum += (a.Comedy - b.Comedy) * (a.Comedy - b.Comedy)
-		sum += (a.Directing - b.Directing) * (a.Directing - b.Directing)
-		sum += (a.Drama - b.Drama) * (a.Drama - b.Drama)
-		sum += (a.Fantasy - b.Fantasy) * (a.Fantasy - b.Fantasy)
-		sum += (a.Horror - b.Horror) * (a.Horror - b.Horror)
-		sum += (a.Romance - b.Romance) * (a.Romance - b.Romance)
-		sum += (a.StoryTelling - b.StoryTelling) * (a.StoryTelling - b.StoryTelling)
-		sum += (a.Suspense - b.Suspense) * (a.Suspense - b.Suspense)
-		sum += (a.Writing - b.Writing) * (a.Writing - b.Writing)
-		return sum
-	}
-
 	var dists []centroidDist
 	for id, metrics := range c.centroids {
-		d := distance(mood, metrics)
+		d := utils.MetricDistance(mood, metrics)
 		dists = append(dists, centroidDist{id: id, dist: d})
 	}
 
