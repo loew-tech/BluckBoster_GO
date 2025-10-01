@@ -88,31 +88,31 @@ func TestGetMovie_NotFound(t *testing.T) {
 }
 
 func TestGetMovieMetricsHandler(t *testing.T) {
-    gin.SetMode(gin.TestMode)
-    r := gin.Default()
-    mockService := new(services.MockMoviesService)
-    h := handlers.NewMoviesHandlerWithService(mockService)
-    r.GET("/movies/:movieID/metrics", h.GetMovieMetrics) // <-- match handler code
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	mockService := new(services.MockMoviesService)
+	h := handlers.NewMoviesHandlerWithService(mockService)
+	r.GET("/movies/:movieID/metrics", h.GetMovieMetrics) // <-- match handler code
 
-    expected := data.MovieMetrics{
-        Acting:         97,
-        Action:         15,
-        Cinematography: 95,
-    }
-    mockService.On("GetMovieMetrics", mock.Anything, "la_strada_1954").Return(expected, nil)
+	expected := data.MovieMetrics{
+		Acting:         97,
+		Action:         15,
+		Cinematography: 95,
+	}
+	mockService.On("GetMovieMetrics", mock.Anything, "la_strada_1954").Return(expected, nil)
 
-    req := httptest.NewRequest(http.MethodGet, "/movies/la_strada_1954/metrics", nil)
-    w := httptest.NewRecorder()
-    r.ServeHTTP(w, req)
+	req := httptest.NewRequest(http.MethodGet, "/movies/la_strada_1954/metrics", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
 
-    assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
-    var got data.MovieMetrics
-    err := json.Unmarshal(w.Body.Bytes(), &got)
-    assert.NoError(t, err)
-    assert.Equal(t, expected.Acting, got.Acting)
-    assert.Equal(t, expected.Action, got.Action)
-    assert.Equal(t, expected.Cinematography, got.Cinematography)
+	var got data.MovieMetrics
+	err := json.Unmarshal(w.Body.Bytes(), &got)
+	assert.NoError(t, err)
+	assert.Equal(t, expected.Acting, got.Acting)
+	assert.Equal(t, expected.Action, got.Action)
+	assert.Equal(t, expected.Cinematography, got.Cinematography)
 }
 
 func TestGetTrivia_Success(t *testing.T) {
@@ -149,4 +149,60 @@ func TestGetTrivia_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	assert.Contains(t, resp.Body.String(), "Trivia for m123 not found")
+}
+
+func TestGetIniitialVotingSlateHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		mockMovies     []string
+		mockError      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:           "success",
+			mockMovies:     []string{"m1", "m2", "m3", "m4", "m5", "m6", "m7"},
+			mockError:      nil,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `"movies":["m1","m2","m3","m4","m5","m6","m7"]`,
+		},
+		{
+			name:           "partial error",
+			mockMovies:     []string{"m1", "m2", "m3"},
+			mockError:      errors.New("some errors occurred"),
+			expectedStatus: http.StatusOK,
+			expectedBody:   `"msg":"initial voting slate of movies gathered with errors"`,
+		},
+		{
+			name:           "no movies",
+			mockMovies:     []string{},
+			mockError:      errors.New("no centroids"),
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   `"msg":"unable to get initial voting slate movies"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(services.MockMembersService)
+			handler := handlers.NewMembersHandlerWithService(mockSvc)
+
+			mockSvc.On("GetIniitialVotingSlate", mock.Anything).
+				Return(tt.mockMovies, tt.mockError)
+
+			w := httptest.NewRecorder()
+			c, r := gin.CreateTestContext(w)
+			r.GET("/members/mood/initial_voting", handler.GetIniitialVotingSlate)
+
+			req, _ := http.NewRequest(http.MethodGet, "/members/mood/initial_voting", nil)
+			c.Request = req
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			assert.Contains(t, w.Body.String(), tt.expectedBody)
+		})
+	}
 }

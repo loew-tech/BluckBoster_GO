@@ -58,7 +58,22 @@ func (m *MockMembersService) GetCartMovies(ctx context.Context, username string)
 
 func (m *MockMembersService) SetAPIChoice(ctx context.Context, username, choice string) error {
 	args := m.Called(ctx, username, choice)
-	return args.Error(0)
+	return args.Error(1)
+}
+
+func (m *MockMembersService) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockMembersService) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
+	args := m.Called(ctx, currentMood, iteration, movieIDs)
+	return args.Get(0).(data.MovieMetrics), args.Get(1).([]string), args.Error(1)
+}
+
+func (m *MockMembersService) GetVotingFinalPicks(ctx context.Context, mood data.MovieMetrics) ([]string, error) {
+	args := m.Called(ctx, mood)
+	return args.Get(0).([]string), args.Error(1)
 }
 
 func (m *MockMembersService) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {

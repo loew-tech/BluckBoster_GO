@@ -190,7 +190,79 @@ func TestGetCartIDs(t *testing.T) {
 	assert.Contains(t, resp.Body.String(), "id1")
 }
 
-// --- Tests for UpdateMood ---
+func TestGetVotingFinalPicksHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		requestBody    interface{}
+		mockReturn     []string
+		mockError      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "success",
+			requestBody: gin.H{
+				"current_mood": gin.H{"acting": 50, "action": 40, "cinematography": 30},
+			},
+			mockReturn:     []string{"m1", "m2", "m3"},
+			mockError:      nil,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `"movies":["m1","m2","m3"]`,
+		},
+		{
+			name:           "invalid JSON",
+			requestBody:    `{"current_mood": "oops"}`, // wrong type
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   `"msg":"Invalid request body"`,
+		},
+		{
+			name: "service error",
+			requestBody: gin.H{
+				"current_mood": gin.H{"acting": 50, "action": 40, "cinematography": 30},
+			},
+			mockReturn:     nil,
+			mockError:      errors.New("db error"),
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   `"msg":"db error"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(services.MockMembersService)
+			handler := handlers.NewMembersHandlerWithService(mockSvc)
+
+			// Only set expectation if valid JSON and expecting service call
+			if tt.mockReturn != nil || tt.mockError != nil {
+				mockSvc.On("GetVotingFinalPicks", mock.Anything, mock.Anything).
+					Return(tt.mockReturn, tt.mockError)
+			}
+
+			w := httptest.NewRecorder()
+			c, r := gin.CreateTestContext(w)
+			r.POST("/members/mood/final_picks", handler.GetVotingFinalPicks)
+
+			var reqBody []byte
+			switch b := tt.requestBody.(type) {
+			case string:
+				reqBody = []byte(b)
+			default:
+				reqBody, _ = json.Marshal(b)
+			}
+			req, _ := http.NewRequest(http.MethodPost, "/members/mood/final_picks", bytes.NewBuffer(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+			c.Request = req
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			assert.Contains(t, w.Body.String(), tt.expectedBody)
+		})
+	}
+}
+
 func TestUpdateMoodHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

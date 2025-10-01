@@ -30,7 +30,7 @@ func GetDynamoClientCentroidCache() *CentroidCache {
 
 func getCentroidsFromDynamo() map[int]data.MovieMetrics {
 	centroidsMap := make(map[int]data.MovieMetrics)
-	centroidTableName, client := "BluckBoster_centroids", utils.GetDynamoClient()
+	centroidTableName, client := "centroids", utils.GetDynamoClient()
 
 	centroidItems, err := client.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &centroidTableName,

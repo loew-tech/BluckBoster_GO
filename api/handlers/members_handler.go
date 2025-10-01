@@ -41,7 +41,10 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/members/return", h.Return)
 	rg.GET("/members/:username/checkedout", h.GetCheckedOutMovies)
 	rg.PUT("/members/:username", h.SetAPIChoice)
+	rg.GET("/members/mood/initial_voting", h.GetIniitialVotingSlate)
+	rg.PUT("/members/mood/vote", h.IterateRecommendationVoting)
 	rg.PUT("/members/mood", h.UpdateMood)
+	rg.PUT("/members/mood/picks", h.GetVotingFinalPicks)
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
@@ -213,6 +216,53 @@ func (h *MembersHandler) SetAPIChoice(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"msg": fmt.Sprintf("API choice set to %s", apiChoice)})
+}
+
+func (h *MembersHandler) GetIniitialVotingSlate(c *gin.Context) {
+	movieIDs, err := h.service.GetIniitialVotingSlate(c)
+	if len(movieIDs) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"msg": "unable to get initial voting slate movies", "err": err.Error()})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"msg": "initial voting slate of movies gathered with errors", "err": err.Error(), "movies": movieIDs})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"movies": movieIDs})
+}
+
+func (h *MembersHandler) IterateRecommendationVoting(c *gin.Context) {
+	var req struct {
+		CurrentMood data.MovieMetrics `json:"current_mood"`
+		Iteration   int               `json:"iteration"`
+		MovieIDs    []string          `json:"movie_ids"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+		return
+	}
+	newMood, newMovieIDs, err := h.service.IterateRecommendationVoting(c.Request.Context(), req.CurrentMood, req.Iteration, req.MovieIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"NewMood": newMood, "movies": newMovieIDs})
+}
+
+func (h *MembersHandler) GetVotingFinalPicks(c *gin.Context) {
+	var req struct {
+		CurrentMood data.MovieMetrics `json:"current_mood"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+		return
+	}
+	movieSelections, err := h.service.GetVotingFinalPicks(c.Request.Context(), req.CurrentMood)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error(), "movies": movieSelections})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"movies": movieSelections})
 }
 
 func (h *MembersHandler) UpdateMood(c *gin.Context) {

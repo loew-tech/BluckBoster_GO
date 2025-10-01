@@ -48,7 +48,10 @@ func (r *DynamoMovieRepo) GetMoviesByPage(ctx context.Context, page string, purp
 			"#y": constants.YEAR,
 		}
 	case constants.FOR_CENTROID_CACHE:
-		expr = "centroid"
+		expr = "#i, centroid"
+		exprAttrNames = map[string]string{
+			"#i": constants.ID,
+		}
 	default:
 		return nil, utils.LogError(fmt.Sprintf("unknown purpose %s in GetMoviesByPage call", purpose), nil)
 	}
