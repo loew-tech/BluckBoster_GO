@@ -29,22 +29,24 @@ func GetDynamoClientCentroidCache() *CentroidCache {
 }
 
 func getCentroidsFromDynamo() map[int]data.MovieMetrics {
+	centroidsMap := make(map[int]data.MovieMetrics)
 	centroidTableName, client := "BluckBoster_centroids", utils.GetDynamoClient()
+	
 	centroidItems, err := client.Scan(context.TODO(), &dynamodb.ScanInput{
 		TableName: &centroidTableName,
 	})
 	if err != nil {
-		// @TODO: handle limited functionality from failed cache population
-		return nil
+		utils.LogError("failed to scan dynamo table for centroids", err)
+		return centroidsMap
 	}
 	var centroids []data.MovieMetrics
 	err = attributevalue.UnmarshalListOfMaps(centroidItems.Items, &centroids)
 	if err != nil {
-		// @TODO: handle limited functionality from failed cache population
-		return nil
+		utils.LogError("failed to unmarshall dynamo table centroid items", err)
+		return centroidsMap
 	}
 
-	centroidsMap := make(map[int]data.MovieMetrics)
+	
 	for _, centroid := range centroids {
 		centroidsMap[centroid.ID] = centroid
 	}

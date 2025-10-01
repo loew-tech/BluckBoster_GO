@@ -15,8 +15,6 @@ type MovieGraph struct {
 	NumStars          int
 	NumMovies         int
 	movieTitleToMovie map[string]data.Movie
-	// @TODO: remove this; functionality moved to api_cache to avoid circular dependency
-	// centroidToMovieIDs map[int][]string
 }
 
 // BFS traverses the graph starting from an actor and collects related stars, movies, and directors.
