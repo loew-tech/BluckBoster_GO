@@ -44,6 +44,7 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/members/mood/initial_voting", h.GetIniitialVotingSlate)
 	rg.PUT("/members/mood/vote", h.IterateRecommendationVoting)
 	rg.PUT("/members/mood", h.UpdateMood)
+	rg.PUT("/members/mood/picks", h.GetVotingFinalPicks)
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
@@ -246,6 +247,22 @@ func (h *MembersHandler) IterateRecommendationVoting(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"NewMood": newMood, "movies": newMovieIDs})
+}
+
+func (h *MembersHandler) GetVotingFinalPicks(c *gin.Context) {
+	var req struct {
+		CurrentMood data.MovieMetrics `json:"current_mood"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid request body"})
+		return
+	}
+	movieSelections, err := h.service.GetVotingFinalPicks(c.Request.Context(), req.CurrentMood)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error(), "movies": movieSelections})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"movies": movieSelections})
 }
 
 func (h *MembersHandler) UpdateMood(c *gin.Context) {

@@ -222,6 +222,45 @@ func TestMembersService_GetInitialVotingSlate(t *testing.T) {
 	})
 }
 
+func TestGetVotingFinalPicks(t *testing.T) {
+	ctx := context.Background()
+	service, mockRepo := setupMockService()
+
+	mood := data.MovieMetrics{Acting: 50, Action: 40, Cinematography: 30}
+
+	t.Run("success", func(t *testing.T) {
+		finalMovies := []string{"m1", "m2", "m3"}
+		mockRepo.On("GetVotingFinalPicks", ctx, mood).Return(finalMovies, nil).Once()
+
+		result, err := service.GetVotingFinalPicks(ctx, mood)
+
+		assert.NoError(t, err)
+		assert.Equal(t, finalMovies, result)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("repo error", func(t *testing.T) {
+		mockRepo.On("GetVotingFinalPicks", ctx, mood).Return([]string{"m1"}, errors.New("db error")).Once()
+
+		result, err := service.GetVotingFinalPicks(ctx, mood)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("empty movie list", func(t *testing.T) {
+		mockRepo.On("GetVotingFinalPicks", ctx, mood).Return([]string{}, nil).Once()
+
+		result, err := service.GetVotingFinalPicks(ctx, mood)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+
 func TestMembersService_UpdateMood(t *testing.T) {
 	ctx := context.Background()
 	service, mockRepo := setupMockService()

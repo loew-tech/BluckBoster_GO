@@ -138,9 +138,15 @@ func (s *MembersService) IterateRecommendationVoting(c context.Context, currentM
 	return mood, newMovieIDS, nil
 }
 
-// @TODO: implement
 func (s *MembersService) GetVotingFinalPicks(c context.Context, mood data.MovieMetrics) ([]string, error) {
-	return nil, nil
+	movieIDs, err := s.repo.GetVotingFinalPicks(c, mood)
+	if len(movieIDs) == 0 {
+		return nil, utils.LogError("failed to make final voting selections", nil)
+	}
+	if err != nil {
+		return nil, utils.LogError("errs occured making final movie selections", nil)
+	}
+	return movieIDs, nil
 }
 
 func (s *MembersService) UpdateMood(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
