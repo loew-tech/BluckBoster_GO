@@ -122,9 +122,12 @@ func (s *MembersService) SetAPIChoice(c context.Context, username, apiChoice str
 	return nil
 }
 
-// @TODO: implement
 func (s *MembersService) GetIniitialVotingSlate(c context.Context) ([]string, error) {
-	return nil, nil
+	movieIDs, err := s.repo.GetIniitialVotingSlate(c)
+	if err != nil {
+		return movieIDs, utils.LogError("errors occured in getting initial voting slate", nil)
+	}
+	return movieIDs, nil
 }
 
 func (s *MembersService) IterateRecommendationVoting(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {

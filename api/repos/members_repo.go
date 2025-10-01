@@ -275,16 +275,21 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 }
 
 func (r *MemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
-	movieIDs := make([]string, 0, constants.MAX_MOVIE_SUGGESTIONS)
+	if r.centroids.Size() == 0 {
+		return nil, utils.LogError("centroid cache failed to initialize; cannot support rec engine", nil)
+	}
+
+	movieIDs, errs := make([]string, constants.MAX_MOVIE_SUGGESTIONS), make([]error, 0)
 	for i := range movieIDs {
 		mid, err := r.centroidsToMovies.GetRandomMovieFromCentroid(r.randGen.Intn(r.centroids.Size()))
 		if err != nil {
+			errs = append(errs, err)
 			utils.LogError("failed to attain random movie from centroid", err)
 			continue
 		}
 		movieIDs[i] = mid
 	}
-	return movieIDs, nil
+	return movieIDs, errors.Join(errs...)
 }
 
 func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
@@ -296,8 +301,6 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 	if err != nil {
 		return data.MovieMetrics{}, nil, utils.LogError("getting new centroids", err)
 	}
-
-	fmt.Println("\t\t **DEBUG NEW CENTROIDS***", newCentroids)
 
 	movieRecs, originalMovies := make(map[string]bool), make(map[string]bool)
 	var recommendedMovieIDs []string

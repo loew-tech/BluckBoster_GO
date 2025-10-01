@@ -166,6 +166,66 @@ func TestReturn_MovieError(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+func TestGetInitialVotingSlate_Success(t *testing.T) {
+	repoIface, _, _, centroidCache, centroidsToMoviesCache := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	// Setup: centroid size > 0, and movies available
+	centroidCache.KNearest = []int{1, 2}
+	centroidsToMoviesCache.MoviesByCentroid = map[int][]string{
+		0: {"a1", "a2"},
+		1: {"b1", "b2"},
+		2: {"c1", "c2"},
+	}
+
+	ctx := context.Background()
+	results, err := repo.GetIniitialVotingSlate(ctx)
+
+	assert.NoError(t, err)
+	assert.Len(t, results, constants.MAX_MOVIE_SUGGESTIONS)
+	// All entries must be non-empty (since we provided movies everywhere)
+	for _, mid := range results {
+		assert.NotEmpty(t, mid)
+	}
+}
+
+func TestGetInitialVotingSlate_ErrorOnFetch(t *testing.T) {
+	repoIface, _, _, centroidCache, centroidsToMoviesCache := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	// Setup: one centroid exists, but always returns error
+	centroidCache.KNearest = []int{1}
+	centroidsToMoviesCache.Err = errors.New("fetch failed")
+
+	ctx := context.Background()
+	results, err := repo.GetIniitialVotingSlate(ctx)
+
+	// Expect slice length = MAX_MOVIE_SUGGESTIONS
+	assert.Len(t, results, constants.MAX_MOVIE_SUGGESTIONS)
+
+	// All slots should be empty since errors prevented movie assignment
+	for _, mid := range results {
+		assert.Empty(t, mid)
+	}
+	assert.Error(t, err)
+}
+
+func TestGetInitialVotingSlate_NoCentroids(t *testing.T) {
+	repoIface, _, _, centroidCache, _ := setupMemberRepo()
+	repo := repoIface.(*repos.MemberRepo)
+
+	// Zero centroids
+	centroidCache.KNearest = []int{}
+
+	ctx := context.Background()
+	results, err := repo.GetIniitialVotingSlate(ctx)
+
+	// Expect nil slice and error
+	assert.Nil(t, results)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "centroid cache failed to initialize")
+}
+
 func TestUpdateMood_AllSuccess(t *testing.T) {
 	repo, _, mockMovieRepo, _, _ := setupMemberRepo()
 

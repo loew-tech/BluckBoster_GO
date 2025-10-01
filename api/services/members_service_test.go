@@ -49,22 +49,22 @@ func (m *MockMemberRepo) GetCheckedOutMovies(ctx context.Context, username strin
 
 func (m *MockMemberRepo) SetMemberAPIChoice(ctx context.Context, username, apiChoice string) error {
 	args := m.Called(ctx, username, apiChoice)
-	return args.Error(0)
+	return args.Error(1)
 }
 
 func (m *MockMemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]string), args.Error(0)
+	return args.Get(0).([]string), args.Error(1)
 }
 
 func (m *MockMemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
 	args := m.Called(ctx, currentMood, iteration, movieIDs)
-	return args.Get(0).(data.MovieMetrics), args.Get(1).([]string), args.Error(0)
+	return args.Get(0).(data.MovieMetrics), args.Get(1).([]string), args.Error(2)
 }
 
 func (m *MockMemberRepo) GetVotingFinalPicks(ctx context.Context, mood data.MovieMetrics) ([]string, error) {
 	args := m.Called(ctx, mood)
-	return args.Get(0).([]string), args.Error(0)
+	return args.Get(0).([]string), args.Error(1)
 }
 
 func (m *MockMemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
@@ -194,7 +194,34 @@ func TestSetAPIChoice_Error(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// --- Tests ---
+func TestMembersService_GetInitialVotingSlate(t *testing.T) {
+	ctx := context.Background()
+	service, mockRepo := setupMockService()
+
+	t.Run("success", func(t *testing.T) {
+		expectedMovies := []string{"m1", "m2", "m3", "m4", "m5", "m6", "m7"} // adjust to MAX_MOVIE_SUGGESTIONS
+		mockRepo.On("GetIniitialVotingSlate", ctx).Return(expectedMovies, nil).Once()
+
+		result, err := service.GetIniitialVotingSlate(ctx)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedMovies, result)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("repo returns error", func(t *testing.T) {
+		expectedMovies := []string{"m1", "m2", "m3", "m4", "m5", "m6", "m7"}
+		mockRepo.On("GetIniitialVotingSlate", ctx).Return(expectedMovies, errors.New("failed to get centroids")).Once()
+
+		result, err := service.GetIniitialVotingSlate(ctx)
+
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "errors occured in getting initial voting slate")
+		assert.Equal(t, expectedMovies, result) // the function returns slice even if there is an error
+		mockRepo.AssertExpectations(t)
+	})
+}
+
 func TestMembersService_UpdateMood(t *testing.T) {
 	ctx := context.Background()
 	service, mockRepo := setupMockService()
@@ -222,7 +249,7 @@ func TestMembersService_UpdateMood(t *testing.T) {
 		result, err := service.UpdateMood(ctx, initialMood, 2, movieIDs)
 
 		assert.Error(t, err)
-		assert.EqualError(t, err, "failed to update mood")
+		assert.EqualError(t, err, "errs occurred while updatings mood")
 		assert.Equal(t, data.MovieMetrics{}, result)
 		mockRepo.AssertExpectations(t)
 	})
