@@ -41,7 +41,7 @@ func TestGetMoviesByPage_Success(t *testing.T) {
 		Return(fakeOutput, nil)
 
 	ctx := context.Background()
-	movies, err := repo.GetMoviesByPage(ctx, "A", false)
+	movies, err := repo.GetMoviesByPage(ctx, "A", constants.FOR_REST_CALL)
 	assert.NoError(t, err)
 	assert.Len(t, movies, 1)
 	assert.Equal(t, "Movie 1", movies[0].Title)

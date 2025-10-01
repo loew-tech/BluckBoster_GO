@@ -74,8 +74,6 @@ const (
 	SET_API_CHOICE      = "SetAPIChoice"
 	SUCCESS             = "success"
 	CODE                = "code"
-	FOR_GRAPH           = true
-	NOT_FOR_GRAPH       = false
 
 	// AWS
 	PAGE               = "page"
@@ -83,6 +81,9 @@ const (
 	PAGINATE_KEY       = "paginate_key"
 	PAGINATE_KEY_INDEX = "paginate_key-index"
 	PAGES              = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	FOR_GRAPH          = "FOR_GRAPH"
+	FOR_REST_CALL      = "FOR_REST_CALL"
+	FOR_CENTROID_CACHE = "FOR_CENTROID_CACHE"
 
 	// API Choice
 	API_CHOICE  = "api_choice"

@@ -30,16 +30,27 @@ func NewDynamoMovieRepo(client DynamoClientInterface) *DynamoMovieRepo {
 	}
 }
 
-// @TODO: change forGraph to options for graph, web page call, and populating caches
-func (r *DynamoMovieRepo) GetMoviesByPage(ctx context.Context, page string, forGraph bool) ([]data.Movie, error) {
-	expr := "#i, title, #c, director, centroid"
-	exprAttrNames := map[string]string{
-		"#i": constants.ID,
-		"#c": constants.CAST,
-	}
-	if !forGraph {
-		expr += ", inventory, rented, rating, #y"
-		exprAttrNames["#y"] = constants.YEAR
+func (r *DynamoMovieRepo) GetMoviesByPage(ctx context.Context, page string, purpose string) ([]data.Movie, error) {
+	var expr string
+	var exprAttrNames map[string]string
+	switch purpose {
+	case constants.FOR_GRAPH:
+		expr = "#i, title, #c, director"
+		exprAttrNames = map[string]string{
+			"#i": constants.ID,
+			"#c": constants.CAST,
+		}
+	case constants.FOR_REST_CALL:
+		expr = "#i, title, #c, director, inventory, rented, rating, #y"
+		exprAttrNames = map[string]string{
+			"#i": constants.ID,
+			"#c": constants.CAST,
+			"#y": constants.YEAR,
+		}
+	case constants.FOR_CENTROID_CACHE:
+		expr = "centroid"
+	default:
+		return nil, utils.LogError(fmt.Sprintf("unknown purpose %s in GetMoviesByPage call", purpose), nil)
 	}
 
 	input := &dynamodb.QueryInput{

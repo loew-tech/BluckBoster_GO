@@ -52,12 +52,12 @@ func getCentroidsFromDynamo() map[int]data.MovieMetrics {
 }
 
 func InitCentroidsToMoviesCache(GetMoviesByPage func(
-	ctx context.Context, page string, forGraph bool) ([]data.Movie, error),
+	ctx context.Context, page string, purpose string) ([]data.Movie, error),
 ) *CentroidsToMoviesCache {
 	initCentroidsToMoviesCacheOnce.Do(func() {
 		centroidsToMovies := make(map[int][]string)
 		for _, page := range constants.PAGES {
-			movies, err := GetMoviesByPage(context.Background(), string(page), true)
+			movies, err := GetMoviesByPage(context.Background(), string(page), constants.FOR_CENTROID_CACHE)
 			if err != nil {
 				utils.LogError("failed to get movies for centroid to movies cache", err)
 				continue
