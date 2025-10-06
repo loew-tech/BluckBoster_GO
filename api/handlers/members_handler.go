@@ -42,9 +42,9 @@ func (h *MembersHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/members/:username/checkedout", h.GetCheckedOutMovies)
 	rg.PUT("/members/:username", h.SetAPIChoice)
 	rg.GET("/members/mood/initial_voting", h.GetIniitialVotingSlate)
-	rg.PUT("/members/mood/vote", h.IterateRecommendationVoting)
-	rg.PUT("/members/mood", h.UpdateMood)
-	rg.PUT("/members/mood/picks", h.GetVotingFinalPicks)
+	rg.POST("/members/mood/vote", h.IterateRecommendationVoting)
+	rg.POST("/members/mood", h.UpdateMood)
+	rg.POST("/members/mood/picks", h.GetVotingFinalPicks)
 }
 
 func (h *MembersHandler) GetMember(c *gin.Context) {
@@ -243,10 +243,10 @@ func (h *MembersHandler) IterateRecommendationVoting(c *gin.Context) {
 	}
 	newMood, newMovieIDs, err := h.service.IterateRecommendationVoting(c.Request.Context(), req.CurrentMood, req.Iteration, req.MovieIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error(), "newMood": newMood, "movies": newMovieIDs})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"NewMood": newMood, "movies": newMovieIDs})
+	c.JSON(http.StatusOK, gin.H{"newMood": newMood, "movies": newMovieIDs})
 }
 
 func (h *MembersHandler) GetVotingFinalPicks(c *gin.Context) {

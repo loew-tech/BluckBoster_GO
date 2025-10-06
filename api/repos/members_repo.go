@@ -304,6 +304,7 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 
 	movieRecs, originalMovies := make(map[string]bool), make(map[string]bool)
 	var recommendedMovieIDs []string
+	var errs []error
 	if len(newCentroids) > 0 {
 		for _, mid := range movieIDs {
 			originalMovies[mid] = true
@@ -315,7 +316,7 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 				attempts++
 				movieID, err = r.centroidsToMovies.GetRandomMovieFromCentroid(centroid)
 				if err != nil {
-					utils.LogError("error getting random movie from centroid", err)
+					errs = append(errs, utils.LogError("error getting random movie from centroid", err))
 					continue
 				}
 				if !originalMovies[movieID] && !movieRecs[movieID] {
@@ -323,14 +324,14 @@ func (r *MemberRepo) IterateRecommendationVoting(ctx context.Context, currentMoo
 				}
 			}
 			if movieID == "" {
-				utils.LogError(fmt.Sprintf("failed to find random movie for centroid %v", centroid), nil)
+				errs = append(errs, utils.LogError(fmt.Sprintf("failed to find random movie for centroid %v", centroid), nil))
 				continue
 			}
 			movieRecs[movieID] = true
 			recommendedMovieIDs = append(recommendedMovieIDs, movieID)
 		}
 	}
-	return updatedMood, recommendedMovieIDs, nil
+	return updatedMood, recommendedMovieIDs, errors.Join(errs...)
 }
 
 func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, error) {
