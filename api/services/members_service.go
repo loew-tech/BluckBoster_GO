@@ -130,10 +130,14 @@ func (s *MembersService) GetIniitialVotingSlate(c context.Context) ([]string, er
 	return movieIDs, nil
 }
 
-func (s *MembersService) IterateRecommendationVoting(c context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
-	mood, newMovieIDS, err := s.repo.IterateRecommendationVoting(c, currentMood, iteration, movieIDs)
+func (s *MembersService) IterateRecommendationVoting(
+	ctx context.Context,
+	currentMood data.MovieMetrics,
+	iteration, numPrevSelected int,
+	movieIDs []string) (data.MovieMetrics, []string, error) {
+	mood, newMovieIDS, err := s.repo.IterateRecommendationVoting(ctx, currentMood, iteration, numPrevSelected, movieIDs)
 	if err != nil {
-		return currentMood, nil, utils.LogError("failed to iterate voting", nil)
+		return mood, nil, utils.LogError("failed to iterate voting", nil)
 	}
 	return mood, newMovieIDS, nil
 }
@@ -144,7 +148,7 @@ func (s *MembersService) GetVotingFinalPicks(c context.Context, mood data.MovieM
 		return nil, utils.LogError("failed to make final voting selections", nil)
 	}
 	if err != nil {
-		return nil, utils.LogError("errs occured making final movie selections", nil)
+		return movieIDs, utils.LogError("errs occured making final movie selections", nil)
 	}
 	return movieIDs, nil
 }

@@ -57,8 +57,8 @@ func (m *MockMemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, 
 	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *MockMemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration int, movieIDs []string) (data.MovieMetrics, []string, error) {
-	args := m.Called(ctx, currentMood, iteration, movieIDs)
+func (m *MockMemberRepo) IterateRecommendationVoting(ctx context.Context, currentMood data.MovieMetrics, iteration, numPrevSelected int, movieIDs []string) (data.MovieMetrics, []string, error) {
+	args := m.Called(ctx, currentMood, iteration, numPrevSelected, movieIDs)
 	return args.Get(0).(data.MovieMetrics), args.Get(1).([]string), args.Error(2)
 }
 
@@ -259,7 +259,6 @@ func TestGetVotingFinalPicks(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 }
-
 
 func TestMembersService_UpdateMood(t *testing.T) {
 	ctx := context.Background()
