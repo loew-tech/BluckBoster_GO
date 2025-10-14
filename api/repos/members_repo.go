@@ -274,23 +274,28 @@ func buildCartUpdateExpr(movieID, updateKey string, checkingOut bool) (string, m
 	return expr, attrs
 }
 
-// @TODO: need to use set to avoid duplicates
 func (r *MemberRepo) GetIniitialVotingSlate(ctx context.Context) ([]string, error) {
 	if r.centroids.Size() == 0 {
 		return nil, utils.LogError("centroid cache failed to initialize; cannot support rec engine", nil)
 	}
 
-	movieIDs, errs := make([]string, constants.MAX_MOVIE_SUGGESTIONS), make([]error, 0)
-	for i := range movieIDs {
+	usedIDs, attempts, errs := make(map[string]bool), 0, make([]error, 0)
+	i := 0
+	for i < constants.MAX_MOVIE_SUGGESTIONS && attempts < constants.MAX_MOVIE_SUGGESTIONS*3 {
+		attempts++
 		mid, err := r.centroidsToMovies.GetRandomMovieFromCentroid(r.randGen.Intn(r.centroids.Size()))
 		if err != nil {
 			errs = append(errs, err)
 			utils.LogError("failed to attain random movie from centroid", err)
 			continue
 		}
-		movieIDs[i] = mid
+		if usedIDs[mid] {
+			continue
+		}
+		usedIDs[mid] = true
+		i++
 	}
-	return movieIDs, errors.Join(errs...)
+	return utils.GetSliceFromMapKeys(usedIDs), errors.Join(errs...)
 }
 
 func (r *MemberRepo) IterateRecommendationVoting(
@@ -309,7 +314,6 @@ func (r *MemberRepo) IterateRecommendationVoting(
 	}
 
 	movieRecs, originalMovies := make(map[string]bool), make(map[string]bool)
-	var recommendedMovieIDs []string
 	var errs []error
 	if len(newCentroids) > 0 {
 		for _, mid := range movieIDs {
@@ -334,10 +338,9 @@ func (r *MemberRepo) IterateRecommendationVoting(
 				continue
 			}
 			movieRecs[movieID] = true
-			recommendedMovieIDs = append(recommendedMovieIDs, movieID)
 		}
 	}
-	return updatedMood, recommendedMovieIDs, errors.Join(errs...)
+	return updatedMood, utils.GetSliceFromMapKeys(movieRecs), errors.Join(errs...)
 }
 
 func (r *MemberRepo) UpdateMood(ctx context.Context, currentMood data.MovieMetrics, numPrevSelected int, movieIDs []string) (data.MovieMetrics, error) {

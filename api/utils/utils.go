@@ -63,6 +63,14 @@ func GetStringArg(params gin.Params, argName string) (string, error) {
 	return val, nil
 }
 
+func GetSliceFromMapKeys(m map[string]bool) []string {
+	s := make([]string, 0, len(m))
+	for k := range m {
+		s = append(s, k)
+	}
+	return s
+}
+
 func AccumulateMovieMetricsWithWeight(a, b data.MovieMetrics, weight int) data.MovieMetrics {
 	return data.MovieMetrics{
 		Acting:         a.Acting + b.Acting*float64(weight),
