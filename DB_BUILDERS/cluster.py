@@ -20,7 +20,7 @@ def get_data(file_path = 'metrics.json') -> pd.DataFrame:
     return data
 
 
-def get_movies_clusters(data: List[Dict[str, int]], keys: List[str], n_clusters: int = 20) -> np.ndarray:
+def get_movies_clusters(data: List[Dict[str, int]], keys: List[str], n_clusters: int = 60) -> np.ndarray:
     dataframe_ = pd.DataFrame.from_records([mets[k] for k in keys] for mets in data)
     kmeans = KMeans(n_clusters=n_clusters, random_state=0)
     kmeans.fit(dataframe_)
