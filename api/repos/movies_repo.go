@@ -181,7 +181,7 @@ func (r *DynamoMovieRepo) GetMovieMetrics(ctx context.Context, movieID string) (
 	input := &dynamodb.GetItemInput{
 		Key:                  map[string]types.AttributeValue{constants.ID: &types.AttributeValueMemberS{Value: movieID}},
 		TableName:            aws.String(r.tableName),
-		ProjectionExpression: aws.String(constants.METRICS),
+		ProjectionExpression: aws.String("mets"),
 	}
 	result, err := r.client.GetItem(ctx, input)
 	if err != nil {
